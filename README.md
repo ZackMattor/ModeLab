@@ -9,10 +9,19 @@ A tiny Vue 3 frontend for exploring and playing chords via Web MIDI, with a buil
 - Dev server: `npm run dev` (opens at `http://localhost:8080` by default)
 - Build for production: `npm run build` (outputs to `dist/`)
 - Lint: `npm run lint`
+- Format: `npm run format` (Prettier)
+- Format check: `npm run format:check`
 
 Note: Opening the HTML file directly is not supported in this Vue setup. Use the dev server for local development. When deploying, serve the built `dist/` folder over HTTP(S).
 
 If you see "vue-cli-service: command not found", run `npm install` to ensure `@vue/cli-service` is installed locally.
+
+### Formatting (Prettier)
+
+- This repo uses Prettier. Config lives in `.prettierrc.json` and `.prettierignore`.
+- Commands:
+  - `npm run format` to write changes
+  - `npm run format:check` to verify formatting in CI or before commits
 
 ## Features
 
