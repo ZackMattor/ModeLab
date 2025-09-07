@@ -1,29 +1,46 @@
 # Chord Explorer (Web MIDI)
 
-A tiny, dependency-free frontend app for exploring and playing chords via Web MIDI with a WebAudio synth fallback.
+A tiny Vue 3 frontend for exploring and playing chords via Web MIDI, with a built‑in WebAudio synth fallback.
 
-## Run
+## Quick Start
 
-- Open `index.html` directly in a modern browser (Chrome/Edge recommended for Web MIDI). No build step needed.
-- Grant MIDI permissions if prompted. If no MIDI output is available, enable the WebAudio synth toggle to hear sound.
+- Prereqs: Node.js 16+ recommended; modern Chromium browser for best Web MIDI support.
+- Install deps (required the first time): `npm install`
+- Dev server: `npm run dev` (opens at `http://localhost:8080` by default)
+- Build for production: `npm run build` (outputs to `dist/`)
+- Lint: `npm run lint`
+
+Note: Opening the HTML file directly is not supported in this Vue setup. Use the dev server for local development. When deploying, serve the built `dist/` folder over HTTP(S).
+
+If you see "vue-cli-service: command not found", run `npm install` to ensure `@vue/cli-service` is installed locally.
 
 ## Features
 
-- Choose root, octave, chord quality, inversion, and add extensions (9, 11, 13, etc.).
-- Sends notes to a selected MIDI output and/or plays via a built-in WebAudio synth.
-- Control velocity, duration, and optional arpeggiation gap.
-- Hold mode to sustain until Stop.
-- Keyboard shortcuts: Space = Play, Esc = Stop.
+- Output: Select a MIDI output and MIDI channel; toggle WebAudio synth fallback.
+- Chord: Pick root, octave, quality, and inversion; add extensions (9, 11, 13, b9, #9, #11, b13).
+- Playback: Set velocity, duration, optional arpeggiation gap, and Hold mode.
+- Piano roll: Click keys to audition notes; highlights active notes.
+- Shortcuts: Space = Play, Esc = Stop.
 
-## Files
+## Browser + MIDI Notes
 
-- `index.html` – UI layout
-- `style.css` – Styling
-- `main.js` – Web MIDI, chord logic, and synth fallback
+- Web MIDI works best in Chromium‑based browsers. You may be prompted to grant MIDI permissions.
+- If no hardware output is available or MIDI access is blocked, enable the built‑in WebAudio synth.
+- Pitch reference uses A4 = MIDI 69.
 
-## Notes
+## Project Structure
 
-- Web MIDI is best supported in Chromium-based browsers.
-- The synth uses a simple sawtooth oscillator with a low-pass filter and a basic envelope.
-- MIDI note/octave reference uses the common standard where A4 = MIDI 69.
+- `public/index.html` – HTML template injected by Vue CLI
+- `src/main.js` – App entry
+- `src/App.vue` – Main UI, chord logic, and MIDI/synth handling
+- `src/assets/main.css` – Global styles
 
+## Development Tips
+
+- The synth exposes waveform, volume, filter cutoff/resonance, ADSR, and detune controls; changes apply live to sustained notes.
+- Inversion count depends on the selected chord quality; changing quality resets the inversion to root position.
+- For multi‑select extensions, use Cmd/Ctrl to select multiple options.
+
+## License
+
+No license specified. Add one if you intend to distribute.
