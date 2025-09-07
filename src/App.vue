@@ -1,8 +1,8 @@
 <template>
   <div>
     <header>
-      <h1>Chord Explorer</h1>
-      <p class="subtitle">Multi-track synth: add, configure, and play tracks.</p>
+      <h1>ModeLab</h1>
+      <p class="subtitle" title="A key‑aware, roman‑numeral piano‑roll that teaches harmony as you compose">Learn harmony. Sketch ideas fast.</p>
     </header>
 
     <main>
@@ -20,16 +20,16 @@
           <button
             @click="transportPlayPause"
             :class="{ active: seqPlaying }"
-            :title="seqPlaying ? 'Pause' : 'Play'"
+            :title="seqPlaying ? 'Pause playback' : 'Play sequence'"
           >
             {{ seqPlaying ? 'Pause' : 'Play' }}
           </button>
-          <button class="secondary" @click="transportStop" title="Stop All">Stop</button>
+          <button class="secondary" @click="transportStop" title="Stop all tracks and notes">Stop</button>
           <button
             class="secondary"
             :class="{ active: metOn }"
             @click="metOn = !metOn"
-            title="Metronome"
+            title="Toggle metronome click"
           >
             Met
           </button>
@@ -41,6 +41,7 @@
               color: var(--muted);
               font-size: 12px;
             "
+            title="Global tempo in beats per minute"
             >BPM <input type="number" min="40" max="240" v-model.number="bpm"
           /></label>
           <span
@@ -51,12 +52,13 @@
               color: var(--muted);
               font-size: 12px;
             "
+            title="Song key (root and mode)"
           >
             Key
-            <select v-model.number="songKeyRoot">
+            <select v-model.number="songKeyRoot" title="Key root">
               <option v-for="(n, i) in NOTE_NAMES" :key="i" :value="i">{{ n }}</option>
             </select>
-            <select v-model="songKeyMode">
+            <select v-model="songKeyMode" title="Key mode">
               <option value="major">Major</option>
               <option value="minor">Minor</option>
             </select>

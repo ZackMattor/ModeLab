@@ -2,35 +2,35 @@
   <div class="chord-box">
     <div class="header">Chord</div>
     <div class="controls">
-      <select v-model.number="selectedDegree" :title="'Degree in key'">
+      <select v-model.number="selectedDegree" :title="'Roman‑numeral degree in current key'">
         <option v-for="opt in degreeOptions" :key="opt.degree" :value="opt.degree">
           {{ opt.label }}
         </option>
       </select>
-      <input type="number" min="0" max="8" v-model.number="track.octave" :title="'Octave'" />
-      <select v-model="track.quality" @change="resetInversion" :title="'Quality'">
+      <input type="number" min="0" max="8" v-model.number="track.octave" :title="'Octave for chord root (C4=60)'" />
+      <select v-model="track.quality" @change="resetInversion" :title="'Chord quality (triad/seventh)'">
         <option v-for="key in sortedQualityKeys" :key="key" :value="key">
           {{ CHORD_QUALITIES[key].name }}
         </option>
       </select>
-      <select v-model.number="track.inversion" :title="'Inversion'">
+      <select v-model.number="track.inversion" :title="'Inversion (move lowest notes up by octaves)'">
         <option v-for="i in inversionCount" :key="i - 1" :value="i - 1">{{ i - 1 }}</option>
       </select>
-      <select multiple v-model="track.extensions" :title="'Extensions'">
+      <select multiple v-model="track.extensions" :title="'Add chord extensions; Cmd/Ctrl‑click for multi‑select'">
         <option v-for="(semi, key) in EXTENSIONS" :key="key" :value="key">{{ key }}</option>
       </select>
       <!-- Play/export settings -->
-      <label class="ctl"
-        >Vel <input type="range" min="1" max="127" v-model.number="track.velocity"
-      /></label>
-      <label class="ctl"
-        >Len
+      <label class="ctl" title="Velocity (1–127)">
+        Vel <input type="range" min="1" max="127" v-model.number="track.velocity" />
+      </label>
+      <label class="ctl" title="Note length per note (in beats)">
+        Len
         <select v-model.number="track.durationBeats">
           <option v-for="o in lenBeatOptions" :key="o.label" :value="o.beats">{{ o.label }}</option>
         </select>
       </label>
-      <label class="ctl"
-        >Arp
+      <label class="ctl" title="Arpeggiator spacing; Off plays chord as a block">
+        Arp
         <select v-model.number="track.arpGap">
           <option v-for="o in arpBeatOptions" :key="o.label" :value="o.beats">{{ o.label }}</option>
         </select>
