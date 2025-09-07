@@ -3,10 +3,9 @@
     <div class="toolbar">
       <strong>Sequencer</strong>
       <div class="spacer"></div>
-      <label class="ctl">BPM <input type="number" min="40" max="240" v-model.number="track.seqBpm" /></label>
       <label class="ctl">Bars <input type="number" min="1" max="16" v-model.number="track.seqBars" /></label>
       <label class="ctl">TPB <input type="number" min="1" max="16" v-model.number="track.seqTicksPerBeat" /></label>
-      <button class="small" @click="insertChord" title="Insert chord at end">Chord</button>
+      
       <button class="small" :class="{ active: repeat }" @click="repeat = !repeat" title="Loop playback">Loop</button>
       <button class="small" :class="{ active: isPlaying }" @click="togglePlay" :title="isPlaying ? 'Pause' : 'Play'">
         {{ isPlaying ? 'Pause' : 'Play' }}
@@ -166,6 +165,7 @@ export default {
     track: { type: Object, required: true },
     songKeyRoot: { type: Number, default: 0 },
     songKeyMode: { type: String, default: 'major' },
+    bpm: { type: Number, default: 120 },
   },
   data() {
     return {
@@ -216,7 +216,7 @@ export default {
       return romanForDegree(idx, this.songKeyMode);
     },
     msPerTick() {
-      const bpm = Math.max(30, Math.min(300, Number(this.track.seqBpm || 120)));
+      const bpm = Math.max(30, Math.min(300, Number(this.bpm || 120)));
       const msPerBeat = 60000 / bpm;
       return msPerBeat / this.ticksPerBeat;
     },
@@ -350,23 +350,18 @@ export default {
     clearSeq() {
       this.track.sequence.splice(0, this.track.sequence.length);
     },
-    insertChord() {
-      // Compute chord notes from track settings and place at end
-      const beats = Math.max(1, this.track.seqBars * (this.track.seqBeatsPerBar || 4));
+    insertNotes(notes, opts = {}) {
       const endTick = this.track.sequence.reduce((m, e) => Math.max(m, e.start + e.len), 0);
       const start = Math.min(endTick, this.totalTicks - 1);
-      const len = Math.max(1, Math.round(this.ticksPerBeat)); // 1 beat by default
-      // Build chord from track
-      const rootMidi = (this.track.octave + 1) * 12 + this.track.root;
-      const q = (CHORD_QUALITIES[this.track.quality]?.intervals || []).map((i) => rootMidi + i);
-      const ext = (this.track.extensions || []).map((k) => rootMidi + (EXTENSIONS[k] || 0));
-      const notes = q.concat(ext).sort((a,b)=>a-b);
-      const inv = Math.max(0, Math.min(this.track.inversion || 0, Math.max(0, notes.length - 1)));
-      for (let i=0;i<inv;i++) { const n = notes.shift(); notes.push(n+12); }
-      for (const n of notes) {
+      const len = Math.max(1, Math.round(opts.len || this.ticksPerBeat));
+      const vel = Math.max(1, Math.min(127, opts.vel || this.track.velocity));
+      const stagger = Math.max(0, Math.round(opts.staggerTicks || 0));
+      const arr = Array.isArray(notes) ? notes.slice() : [];
+      arr.forEach((n, i) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
-        this.track.sequence.push({ id, note: n, start, len, vel: this.track.velocity });
-      }
+        const s = start + i * stagger;
+        this.track.sequence.push({ id, note: n, start: Math.min(s, this.totalTicks - 1), len, vel });
+      });
     },
     // Scrubbing via ruler
     onRulerDown(e) {

@@ -13,6 +13,7 @@
           </button>
           <button class="secondary" @click="transportStop" title="Stop All">Stop</button>
           <button class="secondary" :class="{ active: metOn }" @click="metOn = !metOn" title="Metronome">Met</button>
+          <label style="display:inline-flex;align-items:center;gap:6px; color: var(--muted); font-size:12px;">BPM <input type="number" min="40" max="240" v-model.number="bpm" /></label>
           <span style="display:inline-flex;align-items:center;gap:6px; color: var(--muted); font-size:12px;">
             Key
             <select v-model.number="songKeyRoot">
@@ -48,6 +49,7 @@
             :track="current"
             :song-key-root="songKeyRoot"
             :song-key-mode="songKeyMode"
+            :bpm="bpm"
             @seq-tick="onSeqTick"
             @seq-state="onSeqState"
           />
@@ -94,6 +96,7 @@ const makeTrack = (idx = 1) => ({
   extensions: [],
   velocity: 96,
   duration: 800,
+  durationBeats: 1,
   arpGap: 0,
   hold: false,
   sequence: [],
@@ -136,6 +139,7 @@ export default {
       NOTE_NAMES,
       songKeyRoot: 0,
       songKeyMode: 'major',
+      bpm: 120,
     };
   },
   computed: {
