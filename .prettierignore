@@ -1,0 +1,14 @@
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+coverage/
+.git/
+.cache/
+.parcel-cache/
+.turbo/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
