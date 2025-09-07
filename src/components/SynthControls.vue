@@ -28,7 +28,11 @@
           v-model.number="track.synth.cutoff"
           @input="applySynth"
       /></label>
-      <button class="secondary small" @click="advanced = !advanced" :title="'Toggle advanced synth options'">
+      <button
+        class="secondary small"
+        @click="advanced = !advanced"
+        :title="'Toggle advanced synth options'"
+      >
         Adv
       </button>
     </div>
@@ -38,7 +42,8 @@
         <label
           >Resonance (Q): <span>{{ track.synth.resonance.toFixed(1) }}</span></label
         >
-        <input title="Filter resonance (Q)"
+        <input
+          title="Filter resonance (Q)"
           type="range"
           min="0.1"
           max="20"
@@ -51,7 +56,8 @@
         <label
           >Attack: <span>{{ track.synth.attackMs }} ms</span></label
         >
-        <input title="Attack time (ms)"
+        <input
+          title="Attack time (ms)"
           type="range"
           min="0"
           max="2000"
@@ -64,7 +70,8 @@
         <label
           >Decay: <span>{{ track.synth.decayMs }} ms</span></label
         >
-        <input title="Decay time (ms)"
+        <input
+          title="Decay time (ms)"
           type="range"
           min="0"
           max="3000"
@@ -77,7 +84,8 @@
         <label
           >Sustain: <span>{{ Math.round(track.synth.sustain * 100) }}%</span></label
         >
-        <input title="Sustain level"
+        <input
+          title="Sustain level"
           type="range"
           min="0"
           max="1"
@@ -90,7 +98,8 @@
         <label
           >Release: <span>{{ track.synth.releaseMs }} ms</span></label
         >
-        <input title="Release time (ms)"
+        <input
+          title="Release time (ms)"
           type="range"
           min="10"
           max="5000"
@@ -103,7 +112,8 @@
         <label
           >Detune: <span>{{ track.synth.detune }} c</span></label
         >
-        <input title="Detune (cents)"
+        <input
+          title="Detune (cents)"
           type="range"
           min="-100"
           max="100"

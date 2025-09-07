@@ -2,7 +2,12 @@
   <div>
     <header>
       <h1>ModeLab</h1>
-      <p class="subtitle" title="A key‑aware, roman‑numeral piano‑roll that teaches harmony as you compose">Learn harmony. Sketch ideas fast.</p>
+      <p
+        class="subtitle"
+        title="A key‑aware, roman‑numeral piano‑roll that teaches harmony as you compose"
+      >
+        Learn harmony. Sketch ideas fast.
+      </p>
     </header>
 
     <main>
@@ -24,7 +29,9 @@
           >
             {{ seqPlaying ? 'Pause' : 'Play' }}
           </button>
-          <button class="secondary" @click="transportStop" title="Stop all tracks and notes">Stop</button>
+          <button class="secondary" @click="transportStop" title="Stop all tracks and notes">
+            Stop
+          </button>
           <button
             class="secondary"
             :class="{ active: metOn }"

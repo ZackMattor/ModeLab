@@ -7,16 +7,33 @@
           {{ opt.label }}
         </option>
       </select>
-      <input type="number" min="0" max="8" v-model.number="track.octave" :title="'Octave for chord root (C4=60)'" />
-      <select v-model="track.quality" @change="resetInversion" :title="'Chord quality (triad/seventh)'">
+      <input
+        type="number"
+        min="0"
+        max="8"
+        v-model.number="track.octave"
+        :title="'Octave for chord root (C4=60)'"
+      />
+      <select
+        v-model="track.quality"
+        @change="resetInversion"
+        :title="'Chord quality (triad/seventh)'"
+      >
         <option v-for="key in sortedQualityKeys" :key="key" :value="key">
           {{ CHORD_QUALITIES[key].name }}
         </option>
       </select>
-      <select v-model.number="track.inversion" :title="'Inversion (move lowest notes up by octaves)'">
+      <select
+        v-model.number="track.inversion"
+        :title="'Inversion (move lowest notes up by octaves)'"
+      >
         <option v-for="i in inversionCount" :key="i - 1" :value="i - 1">{{ i - 1 }}</option>
       </select>
-      <select multiple v-model="track.extensions" :title="'Add chord extensions; Cmd/Ctrl‑click for multi‑select'">
+      <select
+        multiple
+        v-model="track.extensions"
+        :title="'Add chord extensions; Cmd/Ctrl‑click for multi‑select'"
+      >
         <option v-for="(semi, key) in EXTENSIONS" :key="key" :value="key">{{ key }}</option>
       </select>
       <!-- Play/export settings -->
