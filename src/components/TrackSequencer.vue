@@ -205,11 +205,7 @@ export default {
     playX() { return this.gutter + this.playTick * this.pxPerTick; },
     scalePCs() {
       const semis = scaleDegreeSemitones(this.songKeyMode);
-      const pcs = semis.map((s) => (this.songKeyRoot + s) % 12);
-      try {
-        console.debug('[TrackSequencer] scalePCs', { mode: this.songKeyMode, root: this.songKeyRoot, pcs });
-      } catch (e) {}
-      return pcs;
+      return semis.map((s) => (this.songKeyRoot + s) % 12);
     },
   },
   methods: {
@@ -433,26 +429,10 @@ export default {
         this.$refs.roll.scrollLeft = this.$refs.ruler.scrollLeft;
         this.$nextTick(() => (this.syncingScroll = false));
       });
-      try {
-        const inKey = this.rowPitches.filter((p) => this.scalePCs.includes(p % 12));
-        console.debug('[TrackSequencer] mounted', {
-          songKeyRoot: this.songKeyRoot,
-          songKeyMode: this.songKeyMode,
-          rowCount: this.rowPitches.length,
-          inKeyCount: inKey.length,
-          sample: inKey.slice(0, 8).map((m)=>({m, name:this.NOTE_NAMES[m%12]})),
-        });
-      } catch (e) {}
+      // no-op
     });
   },
-  watch: {
-    songKeyRoot(n, o) {
-      try { console.debug('[TrackSequencer] songKeyRoot changed', { from: o, to: n, pcs: this.scalePCs }); } catch (e) {}
-    },
-    songKeyMode(n, o) {
-      try { console.debug('[TrackSequencer] songKeyMode changed', { from: o, to: n, pcs: this.scalePCs }); } catch (e) {}
-    },
-  },
+  watch: {},
   beforeUnmount() { this.stopSeq(); },
 };
 </script>
