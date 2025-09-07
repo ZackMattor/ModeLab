@@ -15,7 +15,40 @@
       <button class="small danger" @click="clearSeq" title="Clear">Clear</button>
     </div>
 
-    <div class="roll" ref="roll" @mousedown="onDown" @mousemove="onHover" @mouseleave="clearHover">
+    <div class="ruler-fixed" ref="ruler" @mousedown.stop="onRulerDown">
+      <svg :width="svgWTotal" height="16">
+        <g>
+          <line
+            v-for="t in totalBeats + 1"
+            :key="'rbl' + t"
+            :x1="gutter + t * ticksPerBeat * pxPerTick"
+            y1="0"
+            :x2="gutter + t * ticksPerBeat * pxPerTick"
+            y2="16"
+            class="beat"
+          />
+          <line
+            v-for="b in (track.seqBars + 1)"
+            :key="'rbar' + b"
+            :x1="gutter + (b - 1) * track.seqBeatsPerBar * ticksPerBeat * pxPerTick"
+            y1="0"
+            :x2="gutter + (b - 1) * track.seqBeatsPerBar * ticksPerBeat * pxPerTick"
+            y2="16"
+            class="barline"
+          />
+          <text
+            v-for="b in track.seqBars"
+            :key="'rlbl' + b"
+            :x="gutter + (b - 1) * track.seqBeatsPerBar * ticksPerBeat * pxPerTick + 4"
+            y="12"
+            class="bar-label"
+          >{{ b }}</text>
+          <!-- Playhead triangle in fixed ruler -->
+          <polygon class="head" :points="`${playX-5},0 ${playX+5},0 ${playX},10`" />
+        </g>
+      </svg>
+    </div>
+    <div class="roll" ref="roll" @scroll="onRollScroll" @mousedown="onDown" @mousemove="onHover" @mouseleave="clearHover">
       <svg :width="svgWTotal" :height="svgH + 16">
         <!-- Rows -->
         <g>
@@ -42,29 +75,7 @@
           />
         </g>
         
-        <!-- Bar lines + labels -->
-        <g>
-          <line
-            v-for="b in (track.seqBars + 1)"
-            :key="'bar' + b"
-            :x1="gutter + (b - 1) * track.seqBeatsPerBar * ticksPerBeat * pxPerTick"
-            y1="16"
-            :x2="gutter + (b - 1) * track.seqBeatsPerBar * ticksPerBeat * pxPerTick"
-            :y2="svgH + 16"
-            class="barline"
-          />
-          <text
-            v-for="b in track.seqBars"
-            :key="'lbl' + b"
-            :x="gutter + (b - 1) * track.seqBeatsPerBar * ticksPerBeat * pxPerTick + 4"
-            y="12"
-            class="bar-label"
-          >{{ b }}</text>
-        </g>
-        <!-- Ruler for scrubbing -->
-        <g>
-          <rect class="ruler" x="0" y="0" :width="svgWTotal" height="16" @mousedown.stop="onRulerDown" />
-        </g>
+        
         <!-- Hover cell highlight -->
         <g v-if="hoverTick != null && hoverNote != null">
           <rect
@@ -127,7 +138,6 @@
         <!-- Playhead -->
         <g>
           <line :x1="playX" :x2="playX" y1="0" :y2="svgH + 16" class="playhead" />
-          <polygon class="head" :points="`${playX-5},0 ${playX+5},0 ${playX},10`" />
         </g>
       </svg>
     </div>
@@ -157,6 +167,7 @@ export default {
       playStartTick: 0,
       rafId: null,
       draggingScrub: false,
+      syncingScroll: false,
       hoverTick: null,
       hoverNote: null,
       repeat: false,
@@ -333,8 +344,8 @@ export default {
     },
     // Scrubbing via ruler
     onRulerDown(e) {
-      const rect = this.$refs.roll.getBoundingClientRect();
-      const x = e.clientX - rect.left + this.$refs.roll.scrollLeft;
+      const rect = this.$refs.ruler.getBoundingClientRect();
+      const x = e.clientX - rect.left + this.$refs.ruler.scrollLeft;
       this.playTick = this.tickForX(x);
       this.draggingScrub = true;
       if (this.isPlaying) {
@@ -346,14 +357,20 @@ export default {
     },
     onRulerMove(e) {
       if (!this.draggingScrub) return;
-      const rect = this.$refs.roll.getBoundingClientRect();
-      const x = e.clientX - rect.left + this.$refs.roll.scrollLeft;
+      const rect = this.$refs.ruler.getBoundingClientRect();
+      const x = e.clientX - rect.left + this.$refs.ruler.scrollLeft;
       this.playTick = this.tickForX(x);
     },
     onRulerUp() {
       this.draggingScrub = false;
       window.removeEventListener('mousemove', this.onRulerMove);
       window.removeEventListener('mouseup', this.onRulerUp);
+    },
+    onRollScroll() {
+      if (this.syncingScroll) return;
+      this.syncingScroll = true;
+      this.$refs.ruler.scrollLeft = this.$refs.roll.scrollLeft;
+      this.$nextTick(() => (this.syncingScroll = false));
     },
     onHover(e) {
       const rect = this.$refs.roll.getBoundingClientRect();
@@ -377,6 +394,15 @@ export default {
       const target = this.yForNote(60) + 16; // account for ruler
       const centerOffset = Math.max(0, target - (el.clientHeight / 2 - this.rowH / 2));
       el.scrollTop = centerOffset;
+      // sync initial horizontal scroll
+      this.$refs.ruler.scrollLeft = el.scrollLeft;
+      // keep ruler and roll in sync when ruler scrolls
+      this.$refs.ruler.addEventListener('scroll', () => {
+        if (this.syncingScroll) return;
+        this.syncingScroll = true;
+        this.$refs.roll.scrollLeft = this.$refs.ruler.scrollLeft;
+        this.$nextTick(() => (this.syncingScroll = false));
+      });
     });
   },
   beforeUnmount() { this.stopSeq(); },
@@ -388,7 +414,9 @@ export default {
 .toolbar { display: flex; align-items: center; gap: 6px; }
 .spacer { flex: 1; }
 .ctl { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.ruler-fixed { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border); border-bottom: none; border-radius: 6px 6px 0 0; background: #0b0f20; }
 .roll { overflow: auto; border: 1px solid var(--border); border-radius: 6px; background: #0b0f20; max-height: 260px; }
+.roll { border-top-left-radius: 0; border-top-right-radius: 0; }
 .row.wht { fill: rgba(255,255,255,0.03); }
 .row.blk { fill: rgba(0,0,0,0.15); }
 .beat { stroke: rgba(255,255,255,0.08); stroke-width: 1; }
