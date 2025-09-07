@@ -23,8 +23,10 @@ export class Metronome {
     osc.start(now);
     osc.stop(now + 0.09);
     setTimeout(() => {
-      try { osc.disconnect(); gain.disconnect(); } catch (e) {}
+      try {
+        osc.disconnect();
+        gain.disconnect();
+      } catch (e) {}
     }, 120);
   }
 }
-

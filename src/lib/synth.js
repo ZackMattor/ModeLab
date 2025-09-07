@@ -82,14 +82,17 @@ export class SimpleSynth {
       } catch (e) {
         /* noop */
       }
-      setTimeout(() => {
-        try {
-          osc.disconnect();
-          gain.disconnect();
-        } catch (e) {
-          /* noop */
-        }
-      }, rel * 1000 + 80);
+      setTimeout(
+        () => {
+          try {
+            osc.disconnect();
+            gain.disconnect();
+          } catch (e) {
+            /* noop */
+          }
+        },
+        rel * 1000 + 80
+      );
     }
     this.active.delete(note);
   }
@@ -111,8 +114,12 @@ export class SimpleSynth {
           osc.detune.setTargetAtTime(this.settings.detune, now, 0.01);
         } catch (e) {}
         if (filter) {
-          try { filter.frequency.setTargetAtTime(this.settings.cutoff, now, 0.01); } catch (e) {}
-          try { filter.Q.setTargetAtTime(this.settings.resonance, now, 0.01); } catch (e) {}
+          try {
+            filter.frequency.setTargetAtTime(this.settings.cutoff, now, 0.01);
+          } catch (e) {}
+          try {
+            filter.Q.setTargetAtTime(this.settings.resonance, now, 0.01);
+          } catch (e) {}
         }
         const sustain = vel * Math.max(0, Math.min(1, this.settings.sustain));
         try {

@@ -86,13 +86,16 @@ export function diatonicTriadQuality(degreeIndex, mode) {
 
 export function romanForDegree(degIdx, mode, quality) {
   const baseRomans = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
-  const isDiatonicMin = mode === 'minor' ? ['min', 'dim', 'maj', 'min', 'min', 'maj', 'maj'] : ['maj','min','min','maj','maj','min','dim'];
+  const isDiatonicMin =
+    mode === 'minor'
+      ? ['min', 'dim', 'maj', 'min', 'min', 'maj', 'maj']
+      : ['maj', 'min', 'min', 'maj', 'maj', 'min', 'dim'];
   const expected = isDiatonicMin[degIdx % 7];
   let rn = baseRomans[degIdx % 7];
   // Lowercase for minor/Dim if matches diatonic minor quality in minor key, or if actual quality is minor-like
   const q = quality || expected;
   if (q === 'min') rn = rn.toLowerCase();
-  if (q === 'dim') rn = (mode === 'minor') ? rn.toLowerCase() + '°' : rn.toLowerCase() + '°';
+  if (q === 'dim') rn = mode === 'minor' ? rn.toLowerCase() + '°' : rn.toLowerCase() + '°';
   if (q === 'aug') rn = rn + '+';
   if (q === 'maj') rn = rn; // keep uppercase
   return rn;

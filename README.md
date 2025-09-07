@@ -32,7 +32,7 @@ If you see "vue-cli-service: command not found", run `npm install` to ensure `@v
 - Playback: Velocity, duration, arpeggiation gap, Hold mode.
 - Piano roll: Click keys to audition notes; highlights active notes.
 - Shortcuts: Space = Play/Stop sequencer, Esc = Stop.
- - Global transport: Play/Stop buttons in the header control the current track's sequencer.
+- Global transport: Play/Stop buttons in the header control the current track's sequencer.
 
 ## Notes
 

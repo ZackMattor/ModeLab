@@ -1,6 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
+
 - `src/` — Application code
   - `App.vue` — Shell layout; track management
   - `components/` — UI pieces
@@ -17,6 +18,7 @@
 - `dist/` — Production build output (generated)
 
 ## Build, Test, and Development Commands
+
 - `npm install` — Install dependencies
 - `npm run dev` — Start Vue CLI dev server at `http://localhost:8080`
 - `npm run build` — Production build to `dist/`
@@ -24,6 +26,7 @@
 - `npm run format` / `npm run format:check` — Prettier write/check
 
 ## Coding Style & Naming Conventions
+
 - Formatting: Prettier enforced (`.prettierrc.json`)
   - 2-space indent, single quotes, semicolons, trailing commas (ES5)
   - Keep line length ≤ 100 chars; `vueIndentScriptAndStyle: true`
@@ -34,11 +37,13 @@
   - CSS classes: kebab-case
 
 ## Testing Guidelines
+
 - No test framework is configured yet.
 - If adding tests, propose `vitest` + `@vue/test-utils` in a PR first.
 - Place tests under `tests/` mirroring `src/` (e.g., `tests/components/PianoRoll.spec.ts`).
 
 ## Commit & Pull Request Guidelines
+
 - Current history is inconsistent; prefer Conventional Commits:
   - Examples: `feat: add arpeggiation gap`, `fix: correct MIDI channel off-by-one`
 - PRs should include:
@@ -48,5 +53,6 @@
   - Scope PRs narrowly; avoid unrelated refactors
 
 ## Security & Configuration Tips
+
 - Uses WebAudio only; no external MIDI access.
 - Do not add new runtime dependencies without discussing tradeoffs (bundle size, compatibility).

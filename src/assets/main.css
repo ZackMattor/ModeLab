@@ -23,8 +23,17 @@ body {
   margin: 0;
   background: radial-gradient(1200px 600px at 10% -10%, #1a2042, #0f1220 50%);
   color: var(--text);
-  font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica,
-    Arial, sans-serif;
+  font:
+    13px/1.35 system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Ubuntu,
+    Cantarell,
+    Noto Sans,
+    Helvetica,
+    Arial,
+    sans-serif;
 }
 
 header {
@@ -62,7 +71,9 @@ main {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 .card h2 {
   margin: 0 0 6px;
@@ -156,7 +167,9 @@ footer {
 }
 
 @media (max-width: 900px) {
-  .row { grid-template-columns: 1fr; }
+  .row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Piano Roll */
@@ -166,7 +179,10 @@ footer {
   border: 1px solid var(--border);
   border-radius: 8px;
 }
-.piano { display: block; height: 110px; }
+.piano {
+  display: block;
+  height: 110px;
+}
 .piano rect.white {
   fill: #f7f8fb;
   stroke: #cdd3e1;
