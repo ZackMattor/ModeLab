@@ -127,6 +127,18 @@
             />
           </g>
         </g>
+        <!-- Key-based note labels in gutter -->
+        <g>
+          <template v-for="(p, i) in rowPitches" :key="'lblpc' + i">
+            <text
+              v-if="scalePCs.includes(p % 12)"
+              :x="gutter - 4"
+              :y="i * rowH + 16 + (rowH/2) + 3"
+              class="pc-label"
+              text-anchor="end"
+            >{{ NOTE_NAMES[p % 12] }} {{ romanForPC(p % 12) }}</text>
+          </template>
+        </g>
         <!-- Middle C marker (on top of notes) -->
         <g>
           <!-- Draw dashed lines at the top and bottom of the C4 row for clarity -->
@@ -145,14 +157,19 @@
 </template>
 
 <script>
-import { NOTE_NAMES, CHORD_QUALITIES, EXTENSIONS, computeChordNotes, applyInversion, isBlack } from '../lib/music';
+import { NOTE_NAMES, CHORD_QUALITIES, EXTENSIONS, computeChordNotes, applyInversion, isBlack, scaleDegreeSemitones, romanForDegree } from '../lib/music';
 
 export default {
   name: 'TrackSequencer',
   emits: ['tick', 'state'],
-  props: { track: { type: Object, required: true } },
+  props: { 
+    track: { type: Object, required: true },
+    songKeyRoot: { type: Number, default: 0 },
+    songKeyMode: { type: String, default: 'major' },
+  },
   data() {
     return {
+      NOTE_NAMES,
       timers: [],
       pxPerTick: 12,
       rowH: 14,
@@ -186,9 +203,22 @@ export default {
       return arr;
     },
     playX() { return this.gutter + this.playTick * this.pxPerTick; },
+    scalePCs() {
+      const semis = scaleDegreeSemitones(this.songKeyMode);
+      const pcs = semis.map((s) => (this.songKeyRoot + s) % 12);
+      try {
+        console.debug('[TrackSequencer] scalePCs', { mode: this.songKeyMode, root: this.songKeyRoot, pcs });
+      } catch (e) {}
+      return pcs;
+    },
   },
   methods: {
     isBlack,
+    romanForPC(pc) {
+      const idx = this.scalePCs.indexOf(pc);
+      if (idx === -1) return '';
+      return romanForDegree(idx, this.songKeyMode);
+    },
     msPerTick() {
       const bpm = Math.max(30, Math.min(300, Number(this.track.seqBpm || 120)));
       const msPerBeat = 60000 / bpm;
@@ -403,7 +433,25 @@ export default {
         this.$refs.roll.scrollLeft = this.$refs.ruler.scrollLeft;
         this.$nextTick(() => (this.syncingScroll = false));
       });
+      try {
+        const inKey = this.rowPitches.filter((p) => this.scalePCs.includes(p % 12));
+        console.debug('[TrackSequencer] mounted', {
+          songKeyRoot: this.songKeyRoot,
+          songKeyMode: this.songKeyMode,
+          rowCount: this.rowPitches.length,
+          inKeyCount: inKey.length,
+          sample: inKey.slice(0, 8).map((m)=>({m, name:this.NOTE_NAMES[m%12]})),
+        });
+      } catch (e) {}
     });
+  },
+  watch: {
+    songKeyRoot(n, o) {
+      try { console.debug('[TrackSequencer] songKeyRoot changed', { from: o, to: n, pcs: this.scalePCs }); } catch (e) {}
+    },
+    songKeyMode(n, o) {
+      try { console.debug('[TrackSequencer] songKeyMode changed', { from: o, to: n, pcs: this.scalePCs }); } catch (e) {}
+    },
   },
   beforeUnmount() { this.stopSeq(); },
 };
@@ -425,6 +473,7 @@ export default {
 .midc-line { stroke: rgba(255,255,255,0.35); stroke-dasharray: 4 4; }
 .midc-badge { fill: rgba(0,0,0,0.65); stroke: rgba(255,255,255,0.25); }
 .midc-label { fill: #fff; font-size: 10px; text-anchor: middle; paint-order: stroke; stroke: rgba(0,0,0,0.7); stroke-width: 2; pointer-events: none; }
+.pc-label { fill: rgba(255,255,255,0.85); font-size: 10px; pointer-events: none; }
 .note { fill: #3b8bff; opacity: 0.9; stroke: rgba(0,0,0,0.35); stroke-width: 0.5; shape-rendering: crispEdges; }
 .edge { pointer-events: none; }
 .edge-start { fill: rgba(0,0,0,0.45); }

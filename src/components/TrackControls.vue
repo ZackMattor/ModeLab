@@ -68,7 +68,7 @@
     </div>
 
     <div class="notes-display">{{ notesDisplay }}</div>
-    <track-sequencer ref="seq" :track="track" @tick="$emit('seq-tick', $event)" @state="$emit('seq-state', $event)" />
+    <track-sequencer ref="seq" :track="track" :song-key-root="songKeyRoot" :song-key-mode="songKeyMode" @tick="$emit('seq-tick', $event)" @state="$emit('seq-state', $event)" />
   </div>
 </template>
 
