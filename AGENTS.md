@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 - `src/` — Application code
-  - `App.vue` — Main UI, chord/MIDI/synth logic
+  - `App.vue` — Main UI, chord and synth logic
   - `main.js` — App entry; mounts `App.vue`
   - `assets/` — Global styles (e.g., `assets/main.css`)
 - `public/` — HTML template and static assets
@@ -40,6 +40,5 @@
   - Scope PRs narrowly; avoid unrelated refactors
 
 ## Security & Configuration Tips
-- Web MIDI requires a modern Chromium-based browser; users may need permission prompts.
-- When MIDI hardware is unavailable, ensure the WebAudio synth fallback remains functional.
+- Uses WebAudio only; no external MIDI access.
 - Do not add new runtime dependencies without discussing tradeoffs (bundle size, compatibility).

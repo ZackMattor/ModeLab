@@ -1,10 +1,10 @@
-# Chord Explorer (Web MIDI)
+# Chord Explorer
 
-A tiny Vue 3 frontend for exploring and playing chords via Web MIDI, with a built‑in WebAudio synth fallback.
+A tiny Vue 3 frontend for exploring and playing chords with a built‑in WebAudio synth.
 
 ## Quick Start
 
-- Prereqs: Node.js 16+ recommended; modern Chromium browser for best Web MIDI support.
+- Prereqs: Node.js 16+ recommended; modern browser.
 - Install deps (required the first time): `npm install`
 - Dev server: `npm run dev` (opens at `http://localhost:8080` by default)
 - Build for production: `npm run build` (outputs to `dist/`)
@@ -25,23 +25,21 @@ If you see "vue-cli-service: command not found", run `npm install` to ensure `@v
 
 ## Features
 
-- Output: Select a MIDI output and MIDI channel; toggle WebAudio synth fallback.
 - Chord: Pick root, octave, quality, and inversion; add extensions (9, 11, 13, b9, #9, #11, b13).
 - Playback: Set velocity, duration, optional arpeggiation gap, and Hold mode.
 - Piano roll: Click keys to audition notes; highlights active notes.
 - Shortcuts: Space = Play, Esc = Stop.
 
-## Browser + MIDI Notes
+## Notes
 
-- Web MIDI works best in Chromium‑based browsers. You may be prompted to grant MIDI permissions.
-- If no hardware output is available or MIDI access is blocked, enable the built‑in WebAudio synth.
+- Uses WebAudio; no external MIDI devices are required.
 - Pitch reference uses A4 = MIDI 69.
 
 ## Project Structure
 
 - `public/index.html` – HTML template injected by Vue CLI
 - `src/main.js` – App entry
-- `src/App.vue` – Main UI, chord logic, and MIDI/synth handling
+- `src/App.vue` – Main UI, chord logic, and synth handling
 - `src/assets/main.css` – Global styles
 
 ## Development Tips

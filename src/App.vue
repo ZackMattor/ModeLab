@@ -2,35 +2,11 @@
   <div>
     <header>
       <h1>Chord Explorer</h1>
-      <p class="subtitle">Play and explore chords via Web MIDI or built‑in synth.</p>
+      <p class="subtitle">Play and explore chords with the built‑in synth.</p>
     </header>
 
     <main>
       <section class="row">
-        <div class="card">
-          <h2>Output</h2>
-          <div class="field">
-            <label for="midi-output">MIDI Output</label>
-            <select id="midi-output" v-model="midi.selectedOutputId">
-              <option :value="''">{{ midi.outputs.length ? '(none)' : '(no outputs)' }}</option>
-              <option v-for="o in midi.outputs" :key="o.id" :value="o.id">
-                {{ o.name }}<span v-if="o.manufacturer"> — {{ o.manufacturer }}</span>
-              </option>
-            </select>
-          </div>
-          <div class="field checkbox">
-            <label>
-              <input type="checkbox" v-model="useWebAudio" />
-              Use built-in WebAudio synth (fallback)
-            </label>
-          </div>
-          <div class="field">
-            <label for="midi-channel">MIDI Channel</label>
-            <input type="number" id="midi-channel" min="1" max="16" v-model.number="channel" />
-          </div>
-          <div class="status" :class="{ ok: midi.ready, warn: !midi.ready }">{{ midi.status }}</div>
-        </div>
-
         <div class="card">
           <h2>Synth</h2>
           <div class="grid two">
@@ -287,12 +263,8 @@
       <section class="card">
         <h2>Tips</h2>
         <ul>
-          <li>Click Play to send MIDI and synth notes.</li>
+          <li>Click Play to hear the built‑in synth.</li>
           <li>Change inversion to rotate chord tones upward.</li>
-          <li>
-            If no MIDI outputs appear, your browser/device may not support Web MIDI, or you blocked
-            permission.
-          </li>
         </ul>
       </section>
     </main>
@@ -437,15 +409,7 @@
         NOTE_NAMES,
         CHORD_QUALITIES,
         EXTENSIONS,
-        midi: {
-          access: null,
-          outputs: [],
-          selectedOutputId: '',
-          ready: false,
-          status: 'Requesting MIDI access…',
-        },
-        channel: 1,
-        useWebAudio: true,
+        
         synth: {
           wave: 'sawtooth',
           master: 0.3,
@@ -545,72 +509,20 @@
       resetInversion() {
         this.inversion = 0;
       },
-      refreshOutputs() {
-        this.midi.outputs = [];
-        if (this.midi.access) {
-          for (const o of this.midi.access.outputs.values()) {
-            this.midi.outputs.push(o);
-          }
-        }
-        this.midi.ready = !!this.midi.access;
-        this.midi.status = this.midi.ready
-          ? 'MIDI ready. Choose an output.'
-          : 'Web MIDI unavailable.';
-      },
-      async initMIDI() {
-        if (!navigator.requestMIDIAccess) {
-          this.midi.ready = false;
-          this.midi.status = 'Web MIDI not supported by this browser.';
-          this.refreshOutputs();
-          return;
-        }
-        try {
-          const access = await navigator.requestMIDIAccess({ sysex: false });
-          this.midi.access = access;
-          access.onstatechange = this.refreshOutputs;
-          this.refreshOutputs();
-        } catch (e) {
-          console.warn('MIDI error', e);
-          this.midi.ready = false;
-          this.midi.status = 'MIDI access denied or failed.';
-          this.refreshOutputs();
-        }
-      },
-      currentOutput() {
-        const id = this.midi.selectedOutputId;
-        if (!id || !this.midi.access) return null;
-        return this.midi.access.outputs.get(id) || null;
-      },
-      sendMidi(msg) {
-        const out = this.currentOutput();
-        if (out) out.send(msg);
-      },
-      noteOnMIDI(note, vel, ch) {
-        const ch0 = clamp((ch || 1) - 1, 0, 15);
-        this.sendMidi([0x90 + ch0, note & 0x7f, clamp(vel || 0, 0, 127)]);
-      },
-      noteOffMIDI(note, ch) {
-        const ch0 = clamp((ch || 1) - 1, 0, 15);
-        this.sendMidi([0x80 + ch0, note & 0x7f, 0]);
-      },
       playChord() {
         const notes = this.chordNotes.slice();
         if (!notes.length) return;
         const vel = this.velocity;
-        const ch = this.channel;
-        const useSynth = this.useWebAudio;
         const hold = this.hold;
         const gap = this.arpGap;
         const playOne = (n, at) => {
           setTimeout(() => {
-            this.noteOnMIDI(n, vel, ch);
-            if (useSynth) this.synthEngine.noteOn(n, vel);
+            this.synthEngine.noteOn(n, vel);
             this.heldNotes.add(n);
             this.$set ? this.$set(this.activeNotes, n, true) : (this.activeNotes[n] = true);
           }, at);
           if (!hold) {
             setTimeout(() => {
-              this.noteOffMIDI(n, ch);
               this.synthEngine.noteOff(n);
               this.heldNotes.delete(n);
               delete this.activeNotes[n];
@@ -624,9 +536,7 @@
         }
       },
       stopAll() {
-        const ch = this.channel;
         for (const n of Array.from(this.heldNotes)) {
-          this.noteOffMIDI(n, ch);
           this.synthEngine.noteOff(n, 50);
           delete this.activeNotes[n];
         }
@@ -634,16 +544,12 @@
       },
       keyDown(m) {
         const vel = this.velocity;
-        const ch = this.channel;
-        this.noteOnMIDI(m, vel, ch);
-        if (this.useWebAudio) this.synthEngine.noteOn(m, vel);
+        this.synthEngine.noteOn(m, vel);
         this.heldNotes.add(m);
         this.activeNotes[m] = true;
       },
       keyUp(m) {
         if (!this.heldNotes.has(m)) return;
-        const ch = this.channel;
-        this.noteOffMIDI(m, ch);
         this.synthEngine.noteOff(m);
         this.heldNotes.delete(m);
         delete this.activeNotes[m];
@@ -653,7 +559,6 @@
       },
     },
     mounted() {
-      this.initMIDI();
       this.applySynth();
       window.addEventListener('keydown', (e) => {
         if (e.code === 'Space') {
