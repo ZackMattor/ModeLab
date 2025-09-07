@@ -2,7 +2,15 @@
 
 ## Project Structure & Module Organization
 - `src/` — Application code
-  - `App.vue` — Main UI, chord and synth logic
+  - `App.vue` — Shell layout; track management
+  - `components/` — UI pieces
+    - `TrackList.vue` — Add/remove/select/rename tracks
+    - `TrackControls.vue` — Per‑track chord/synth/playback controls + sequencer
+    - `TrackSequencer.vue` — Simple per‑track step sequencer (note/len/vel)
+    - `PianoRoll.vue` — Keyboard UI for current track
+  - `lib/` — Shared helpers
+    - `music.js` — Music theory helpers (names/intervals)
+    - `synth.js` — SimpleSynth with shared AudioContext
   - `main.js` — App entry; mounts `App.vue`
   - `assets/` — Global styles (e.g., `assets/main.css`)
 - `public/` — HTML template and static assets

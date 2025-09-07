@@ -1,6 +1,6 @@
 # Chord Explorer
 
-A tiny Vue 3 frontend for exploring and playing chords with a built‑in WebAudio synth.
+A tiny Vue 3 multi‑track chord explorer with a built‑in WebAudio synth.
 
 ## Quick Start
 
@@ -25,10 +25,14 @@ If you see "vue-cli-service: command not found", run `npm install` to ensure `@v
 
 ## Features
 
-- Chord: Pick root, octave, quality, and inversion; add extensions (9, 11, 13, b9, #9, #11, b13).
-- Playback: Set velocity, duration, optional arpeggiation gap, and Hold mode.
+- Multiple tracks: Add/remove, rename, and select tracks.
+- Per‑track synth: Waveform, volume, filter, ADSR, and detune.
+- Per‑track sequencer: Define steps (note, length, velocity) and play/stop with a configurable gap.
+- Chords: Root, octave, quality, inversion, extensions (9/11/13, b9, #9, #11, b13).
+- Playback: Velocity, duration, arpeggiation gap, Hold mode.
 - Piano roll: Click keys to audition notes; highlights active notes.
-- Shortcuts: Space = Play, Esc = Stop.
+- Shortcuts: Space = Play/Stop sequencer, Esc = Stop.
+ - Global transport: Play/Stop buttons in the header control the current track's sequencer.
 
 ## Notes
 
@@ -39,7 +43,12 @@ If you see "vue-cli-service: command not found", run `npm install` to ensure `@v
 
 - `public/index.html` – HTML template injected by Vue CLI
 - `src/main.js` – App entry
-- `src/App.vue` – Main UI, chord logic, and synth handling
+- `src/App.vue` – Shell layout; track management
+- `src/components/TrackList.vue` – Add/remove/select/rename tracks
+- `src/components/TrackControls.vue` – Per‑track chord, synth, and playback controls
+- `src/components/PianoRoll.vue` – Keyboard UI tied to current track
+- `src/lib/music.js` – Music theory helpers (names, intervals, math)
+- `src/lib/synth.js` – SimpleSynth (shared AudioContext)
 - `src/assets/main.css` – Global styles
 
 ## Development Tips
