@@ -160,6 +160,9 @@
     arpGap: 0,
     hold: false,
     sequence: [],
+    // Structured chord segments
+    elements: [],
+    selectedElementId: null,
     seqGap: 40,
     synth: {
       wave: 'sawtooth',
@@ -247,6 +250,27 @@
                 vel: Math.max(1, Math.min(127, Number(ev.vel) || t.velocity || 96)),
               }))
             : [],
+          elements: Array.isArray(t.elements)
+            ? t.elements.map((el) => ({
+                id: String(el.id || makeId()),
+                start: Math.max(0, Number(el.start) || 0),
+                lenBeats: Number.isFinite(el.lenBeats) ? Math.max(0.0625, el.lenBeats) : 1,
+                degree: Number.isFinite(el.degree) ? el.degree : 0,
+                octave: Number.isFinite(el.octave) ? el.octave : 4,
+                quality: typeof el.quality === 'string' ? el.quality : 'maj',
+                inversion: Number.isFinite(el.inversion) ? el.inversion : 0,
+                extensions: Array.isArray(el.extensions) ? el.extensions.slice(0, 8) : [],
+                velocity: Number.isFinite(el.velocity) ? el.velocity : t.velocity || 96,
+                arp: !!el.arp || (Number.isFinite(el.arpBeats) && el.arpBeats > 0),
+                arpLenBeats: Number.isFinite(el.arpLenBeats)
+                  ? Math.max(0.0625, el.arpLenBeats)
+                  : Number.isFinite(el.arpBeats)
+                    ? Math.max(0.0625, el.arpBeats)
+                    : 0.25,
+                hold: !!el.hold,
+              }))
+            : [],
+          selectedElementId: t.selectedElementId ? String(t.selectedElementId) : null,
           seqGap: Number.isFinite(t.seqGap) ? t.seqGap : 40,
           synth: {
             wave: t?.synth?.wave || 'sawtooth',

@@ -74,6 +74,57 @@
       @mouseleave="clearHover"
     >
       <svg :width="svgWTotal" :height="svgH + 16">
+        <!-- Elements lane (top band) -->
+        <g class="elements">
+          <g v-for="el in track.elements" :key="'el' + el.id">
+            <rect
+              :x="gutter + el.start * pxPerTick"
+              :y="2"
+              :width="Math.max(4, elTicks(el) * pxPerTick)"
+              height="12"
+              :class="['segment', track.selectedElementId === el.id ? 'selected' : '']"
+              @mousedown.stop="onElementDown($event, el)"
+            />
+            <rect
+              :x="gutter + el.start * pxPerTick - 2"
+              y="2"
+              width="4"
+              height="12"
+              class="segment-handle"
+              @mousedown.stop="onElementDown($event, el, 'resize-left')"
+            />
+            <rect
+              :x="gutter + (el.start + elTicks(el)) * pxPerTick - 2"
+              y="2"
+              width="4"
+              height="12"
+              class="segment-handle"
+              @mousedown.stop="onElementDown($event, el, 'resize-right')"
+            />
+            <text
+              :x="gutter + el.start * pxPerTick + 4"
+              y="12"
+              class="segment-label"
+              @mousedown.stop="onElementDown($event, el)"
+            >
+              {{ rnForDegree(el.degree || 0, el.quality) }}
+            </text>
+          </g>
+        </g>
+        <!-- Element ghost notes (read-only) -->
+        <g class="ghosts">
+          <template v-for="el in track.elements" :key="'g' + el.id">
+            <template v-for="r in ghostRectsForElement(el)" :key="'g' + el.id + '-' + r.k">
+              <rect
+                :x="gutter + r.start * pxPerTick"
+                :y="yForNote(r.note) + 16 + 2"
+                :width="Math.max(2, r.ticks * pxPerTick)"
+                :height="rowH - 6"
+                class="ghost-note"
+              />
+            </template>
+          </template>
+        </g>
         <!-- Rows -->
         <g>
           <rect
@@ -210,6 +261,7 @@
     isBlack,
     scaleDegreeSemitones,
     romanForDegree,
+    degreeRootForKey,
   } from '../lib/music';
 
   export default {
@@ -286,6 +338,50 @@
         if (idx === -1) return '';
         return romanForDegree(idx, this.songKeyMode);
       },
+      rnForDegree(i, quality) {
+        // Wrapper so template can call it; uses current key mode
+        return romanForDegree(i, this.songKeyMode, quality);
+      },
+      chordNotesForElement(el) {
+        const degree = Number.isFinite(el.degree) ? el.degree : 0;
+        const rootPc = degreeRootForKey(this.songKeyRoot, this.songKeyMode, degree);
+        const chordTrackLike = {
+          root: rootPc,
+          octave: Number.isFinite(el.octave) ? el.octave : this.track.octave || 4,
+          quality: el.quality || this.track.quality || 'maj',
+          inversion: Number.isFinite(el.inversion) ? el.inversion : 0,
+          extensions: Array.isArray(el.extensions) ? el.extensions : [],
+        };
+        return applyInversion(computeChordNotes(chordTrackLike), chordTrackLike.inversion);
+      },
+      ghostRectsForElement(el) {
+        const notes = this.chordNotesForElement(el);
+        const startTick = Math.round(Number(el.start || 0));
+        const lenTicks = this.elTicks(el);
+        if (!el.arp) {
+          return notes.map((n, i) => ({
+            k: `${i}-${n}`,
+            note: n,
+            start: startTick,
+            ticks: lenTicks,
+          }));
+        }
+        const stepTicks = Math.max(
+          1,
+          Math.round(Math.max(0.0625, Number(el.arpLenBeats || 0.25)) * this.ticksPerBeat)
+        );
+        const count = Math.max(1, Math.ceil(lenTicks / stepTicks));
+        const rects = [];
+        for (let s = 0; s < count; s++) {
+          const note = notes[s % notes.length];
+          const st = startTick + s * stepTicks;
+          const remaining = lenTicks - s * stepTicks;
+          const width = Math.max(1, Math.min(stepTicks, remaining));
+          rects.push({ k: `${s}-${note}`, note, start: st, ticks: width });
+        }
+        return rects;
+      },
+      // legacy helpers no longer used (ghosts now computed via ghostRectsForElement)
       msPerTick() {
         const bpm = Math.max(30, Math.min(300, Number(this.bpm || 120)));
         const msPerBeat = 60000 / bpm;
@@ -312,10 +408,58 @@
         }
         return null;
       },
+      elTicks(el) {
+        const beats = Math.max(0.0625, Number(el.lenBeats || 1));
+        return Math.max(1, Math.round(beats * this.ticksPerBeat));
+      },
+      findElementAtX(x) {
+        const t = this.tickForX(x);
+        for (const el of this.track.elements) {
+          const len = this.elTicks(el);
+          if (t >= el.start && t <= el.start + len) return el;
+        }
+        return null;
+      },
+      onElementDown(e, el, mode) {
+        // select element and prepare drag
+        this.$emit('select-element', el.id);
+        if (this.track) this.track.selectedElementId = el.id;
+        const rect = this.$refs.roll.getBoundingClientRect();
+        const x = e.clientX - rect.left + this.$refs.roll.scrollLeft;
+        const y = e.clientY - rect.top + this.$refs.roll.scrollTop; // not used
+        this.drag = {
+          mode: mode || 'el-move',
+          kind: 'element',
+          id: el.id,
+          start0: el.start,
+          len0: this.elTicks(el),
+          x0: x,
+          y0: y,
+        };
+        window.addEventListener('mousemove', this.onMove);
+        window.addEventListener('mouseup', this.onUp);
+      },
       onDown(e) {
         const rect = this.$refs.roll.getBoundingClientRect();
         const x = e.clientX - rect.left + this.$refs.roll.scrollLeft;
-        const y = e.clientY - rect.top + this.$refs.roll.scrollTop - 16; // account for ruler
+        const yAll = e.clientY - rect.top + this.$refs.roll.scrollTop;
+        // Elements lane interaction (top 16px)
+        if (yAll < 16) {
+          const el = this.findElementAtX(x);
+          if (el) {
+            const px = x - this.gutter;
+            const leftX = el.start * this.pxPerTick;
+            const rightX = (el.start + this.elTicks(el)) * this.pxPerTick;
+            let mode = 'el-move';
+            if (Math.abs(px - leftX) <= 6) mode = 'resize-left';
+            if (Math.abs(px - rightX) <= 6) mode = 'resize-right';
+            this.onElementDown(e, el, mode);
+            return;
+          }
+          // no element under cursor; ignore (creation via ChordSelector)
+          return;
+        }
+        const y = yAll - 16; // account for ruler
         const ev = this.findEventAt(x, y);
         if (ev) {
           const t = this.tickForX(x);
@@ -355,6 +499,25 @@
         if (!this.drag) return;
         const rect = this.$refs.roll.getBoundingClientRect();
         const x = e.clientX - rect.left + this.$refs.roll.scrollLeft;
+        if (this.drag.kind === 'element') {
+          const dxTicks = this.tickForX(x) - this.tickForX(this.drag.x0);
+          const el = this.track.elements.find((s) => s.id === this.drag.id);
+          if (!el) return;
+          if (this.drag.mode === 'el-move') {
+            el.start = Math.max(0, Math.min(this.totalTicks - 1, this.drag.start0 + dxTicks));
+          } else if (this.drag.mode === 'resize-right') {
+            const newLen = Math.max(1, this.drag.len0 + dxTicks);
+            el.lenBeats = Math.max(0.0625, newLen / this.ticksPerBeat);
+          } else if (this.drag.mode === 'resize-left') {
+            const newStart = Math.max(0, this.drag.start0 + dxTicks);
+            const elStart = this.track.elements.find((s) => s.id === this.drag.id)?.start ?? 0;
+            const delta = elStart - newStart;
+            const newLen = Math.max(1, this.drag.len0 + delta);
+            if (el) el.start = newStart;
+            el.lenBeats = Math.max(0.0625, newLen / this.ticksPerBeat);
+          }
+          return;
+        }
         const y = e.clientY - rect.top + this.$refs.roll.scrollTop - 16;
         const dxTicks = this.tickForX(x) - this.tickForX(this.drag.x0);
         const dy = y - this.drag.y0;
@@ -388,6 +551,55 @@
           const on = setTimeout(() => this.track.synthEngine.noteOn(s.note, vel), at);
           const off = setTimeout(() => this.track.synthEngine.noteOff(s.note), at + len);
           this.timers.push(on, off);
+        }
+        // schedule structured elements
+        for (const el of this.track.elements) {
+          if (el.start < startTick) continue;
+          const atMs = (el.start - startTick) * msPerTick;
+          this.scheduleElement(el, atMs, msPerTick);
+        }
+      },
+      scheduleElement(el, atMs, msPerTick) {
+        const vel = Math.max(1, Math.min(127, Number(el.velocity || this.track.velocity || 96)));
+        const degree = Number.isFinite(el.degree) ? el.degree : 0;
+        const rootPc = degreeRootForKey(this.songKeyRoot, this.songKeyMode, degree);
+        const chordTrackLike = {
+          root: rootPc,
+          octave: Number.isFinite(el.octave) ? el.octave : this.track.octave || 4,
+          quality: el.quality || this.track.quality || 'maj',
+          inversion: Number.isFinite(el.inversion) ? el.inversion : 0,
+          extensions: Array.isArray(el.extensions) ? el.extensions : [],
+        };
+        const chordNotes = applyInversion(
+          computeChordNotes(chordTrackLike),
+          chordTrackLike.inversion
+        );
+        const lenBeats = Math.max(0.0625, Number(el.lenBeats || 1));
+        const durMs = lenBeats * this.msPerTick() * this.ticksPerBeat;
+        if (el.arp) {
+          // Use per-note arp length and loop across the segment
+          const stepTicks = Math.max(
+            1,
+            Math.round(Math.max(0.0625, Number(el.arpLenBeats || 0.25)) * this.ticksPerBeat)
+          );
+          const stepMs = stepTicks * msPerTick;
+          const totalTicks = Math.max(1, Math.round(lenBeats * this.ticksPerBeat));
+          const steps = Math.max(1, Math.ceil(totalTicks / stepTicks));
+          for (let s = 0; s < steps; s++) {
+            const n = chordNotes[s % chordNotes.length];
+            const start = atMs + s * stepMs;
+            const gate = Math.max(10, Math.min(stepMs, durMs - s * stepMs));
+            const idOn = setTimeout(() => this.track.synthEngine.noteOn(n, vel), start);
+            const idOff = setTimeout(() => this.track.synthEngine.noteOff(n), start + gate);
+            this.timers.push(idOn, idOff);
+          }
+        } else {
+          // block chord for full segment
+          chordNotes.forEach((n) => {
+            const idOn = setTimeout(() => this.track.synthEngine.noteOn(n, vel), atMs);
+            const idOff = setTimeout(() => this.track.synthEngine.noteOff(n), atMs + durMs);
+            this.timers.push(idOn, idOff);
+          });
         }
       },
       togglePlay() {
@@ -436,6 +648,9 @@
       },
       clearSeq() {
         this.track.sequence.splice(0, this.track.sequence.length);
+        if (Array.isArray(this.track.elements))
+          this.track.elements.splice(0, this.track.elements.length);
+        if ('selectedElementId' in this.track) this.track.selectedElementId = null;
       },
       insertNotes(notes, opts = {}) {
         const endTick = this.track.sequence.reduce((m, e) => Math.max(m, e.start + e.len), 0);
@@ -631,12 +846,40 @@
     fill: rgba(255, 255, 255, 0.001);
     cursor: ew-resize;
   }
+  .ghost-note {
+    fill: rgba(255, 255, 255, 0.25);
+    stroke: rgba(0, 0, 0, 0.3);
+    stroke-width: 0.5;
+    shape-rendering: crispEdges;
+    pointer-events: none;
+  }
   .playhead {
     stroke: #ff6a6a;
     stroke-width: 2;
   }
   .head {
     fill: #ff6a6a;
+  }
+  .segment {
+    fill: #7bd88f;
+    opacity: 0.9;
+    stroke: rgba(0, 0, 0, 0.35);
+    stroke-width: 0.5;
+    shape-rendering: crispEdges;
+    cursor: move;
+  }
+  .segment.selected {
+    fill: #5bcf79;
+    stroke: #aef2bf;
+  }
+  .segment-handle {
+    fill: rgba(255, 255, 255, 0.001);
+    cursor: ew-resize;
+  }
+  .segment-label {
+    fill: rgba(0, 0, 0, 0.85);
+    font-size: 10px;
+    pointer-events: none;
   }
   .ruler {
     fill: rgba(0, 0, 0, 0.0001);

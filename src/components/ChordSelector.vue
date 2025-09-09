@@ -57,6 +57,7 @@
       </label>
       <button class="small" @click="playChord" title="Audition chord">▶ Preview</button>
       <button class="small" @click="insert" title="Insert chord into sequencer">Insert</button>
+      <button class="small" @click="insertSegment" title="Insert chord segment">+ Segment</button>
     </div>
     <div class="notes-display">{{ notesDisplay }}</div>
   </div>
@@ -78,7 +79,7 @@
 
   export default {
     name: 'ChordSelector',
-    emits: ['insert'],
+    emits: ['insert', 'insert-segment'],
     props: {
       track: { type: Object, required: true },
       songKeyRoot: { type: Number, default: 0 },
@@ -193,6 +194,25 @@
           lenBeats: Math.max(0.0625, Number(this.track.durationBeats || 1)),
           vel: Math.max(1, Math.min(127, Number(this.track.velocity || 96))),
           arpBeats: Math.max(0, Number(this.track.arpGap || 0)),
+        });
+      },
+      insertSegment() {
+        const semis = scaleDegreeSemitones(this.songKeyMode);
+        const degreeIdx = semis.findIndex(
+          (s) => (this.songKeyRoot + s) % 12 === this.track.root % 12
+        );
+        const degree = degreeIdx >= 0 ? degreeIdx : 0;
+        this.$emit('insert-segment', {
+          degree,
+          octave: this.track.octave,
+          quality: this.track.quality,
+          inversion: this.track.inversion,
+          extensions: this.track.extensions.slice(),
+          velocity: Math.max(1, Math.min(127, Number(this.track.velocity || 96))),
+          lenBeats: Math.max(0.0625, Number(this.track.durationBeats || 1)),
+          arp: !!(Number(this.track.arpGap || 0) > 0),
+          arpLenBeats: Math.max(0.0625, Number(this.track.arpGap || 0.25)),
+          hold: !!this.track.hold,
         });
       },
     },

@@ -6,8 +6,56 @@
       :song-key-mode="songKeyMode"
       :bpm="bpm"
       @insert="handleInsertChord"
+      @insert-segment="handleInsertSegment"
     />
     <synth-controls :track="track" />
+    <div v-if="selectedElement" class="segment-box">
+      <div class="header">Segment</div>
+      <div class="controls">
+        <select v-model.number="selectedElement.degree" title="Roman‑numeral degree">
+          <option v-for="opt in degreeOptions" :key="opt.degree" :value="opt.degree">
+            {{ opt.label }}
+          </option>
+        </select>
+        <input
+          type="number"
+          min="0"
+          max="8"
+          v-model.number="selectedElement.octave"
+          title="Octave"
+        />
+        <select v-model="selectedElement.quality" title="Quality">
+          <option v-for="key in sortedQualityKeys(selectedElement.degree)" :key="key" :value="key">
+            {{ CHORD_QUALITIES[key].name }}
+          </option>
+        </select>
+        <select v-model.number="selectedElement.inversion" title="Inversion">
+          <option v-for="i in inversionCount(selectedElement.quality)" :key="i - 1" :value="i - 1">
+            {{ i - 1 }}
+          </option>
+        </select>
+        <select multiple v-model="selectedElement.extensions" title="Extensions">
+          <option v-for="(semi, key) in EXTENSIONS" :key="key" :value="key">{{ key }}</option>
+        </select>
+        <label class="ctl" title="Velocity">
+          Vel <input type="range" min="1" max="127" v-model.number="selectedElement.velocity" />
+        </label>
+        <label class="chk" title="Arpeggiator on/off">
+          <input type="checkbox" v-model="selectedElement.arp" /> Arp
+        </label>
+        <label class="ctl" v-if="selectedElement.arp" title="Arp length (beats)">
+          Arp Len
+          <select v-model.number="selectedElement.arpLenBeats">
+            <option v-for="o in lenBeatOptions" :key="'arp' + o.label" :value="o.beats">
+              {{ o.label }}
+            </option>
+          </select>
+        </label>
+        <button class="small danger" @click="removeSelectedElement" title="Delete segment">
+          Delete
+        </button>
+      </div>
+    </div>
     <div class="toolbar">
       <div class="group">
         <label>Play</label>
@@ -23,6 +71,7 @@
       :bpm="bpm"
       @tick="$emit('seq-tick', $event)"
       @state="$emit('seq-state', $event)"
+      @select-element="onSelectElement"
     />
   </div>
 </template>
@@ -31,6 +80,12 @@
   import TrackSequencer from './TrackSequencer.vue';
   import ChordSelector from './ChordSelector.vue';
   import SynthControls from './SynthControls.vue';
+  import {
+    CHORD_QUALITIES,
+    EXTENSIONS,
+    scaleDegreeSemitones,
+    diatonicTriadQuality,
+  } from '../lib/music';
 
   export default {
     name: 'TrackControls',
@@ -43,10 +98,61 @@
       bpm: { type: Number, default: 120 },
     },
     data() {
-      return {};
+      return { CHORD_QUALITIES, EXTENSIONS };
     },
-    computed: {},
+    computed: {
+      selectedElement() {
+        const id = this.track.selectedElementId;
+        if (!id) return null;
+        return this.track.elements.find((e) => e.id === id) || null;
+      },
+      lenBeatOptions() {
+        return [
+          { label: '1/32', beats: 0.125 },
+          { label: '1/16', beats: 0.25 },
+          { label: '1/8', beats: 0.5 },
+          { label: '1/4', beats: 1 },
+          { label: '1/2', beats: 2 },
+          { label: '1/1', beats: 4 },
+        ];
+      },
+      arpBeatOptions() {
+        return [
+          { label: 'Off', beats: 0 },
+          { label: '1/32', beats: 0.125 },
+          { label: '1/16', beats: 0.25 },
+          { label: '1/8', beats: 0.5 },
+          { label: '1/4', beats: 1 },
+        ];
+      },
+      degreeOptions() {
+        const semis = scaleDegreeSemitones(this.songKeyMode);
+        return semis.map((s, i) => {
+          const rootPc = (this.songKeyRoot + s) % 12;
+          const rn = this.romanForDegreeLocal(i);
+          return { degree: i, rootPc, label: `${rn}` };
+        });
+      },
+    },
     methods: {
+      romanForDegreeLocal(i) {
+        // Simple RN based on diatonic triad quality for label
+        return diatonicTriadQuality ? ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][i % 7] || '' : '';
+      },
+      inversionCount(qualityKey) {
+        return CHORD_QUALITIES[qualityKey]?.intervals.length || 1;
+      },
+      sortedQualityKeys(degreeIdx) {
+        const diatonic = diatonicTriadQuality(
+          Number.isFinite(degreeIdx) ? degreeIdx : 0,
+          this.songKeyMode
+        );
+        return Object.keys(CHORD_QUALITIES).sort((a, b) => {
+          if (a === diatonic && b !== diatonic) return -1;
+          if (b === diatonic && a !== diatonic) return 1;
+          return CHORD_QUALITIES[a].name.localeCompare(CHORD_QUALITIES[b].name);
+        });
+      },
       stopAll() {
         // Stop any scheduled sequencer events and sounding notes
         if (this.$refs.seq && this.$refs.seq.stopSeq) this.$refs.seq.stopSeq();
@@ -68,6 +174,51 @@
           this.$refs.seq.insertNotes(payload.notes, { len: lenTicks, vel, staggerTicks });
         }
       },
+      handleInsertSegment(payload) {
+        if (!payload) return;
+        const tpb = Math.max(1, Number(this.track.seqTicksPerBeat || 4));
+        const lenTicks = Math.max(1, Math.round((payload.lenBeats || 1) * tpb));
+        const endTick = this.track.elements.reduce(
+          (m, el) =>
+            Math.max(m, Number(el.start || 0) + Math.max(1, Math.round((el.lenBeats || 1) * tpb))),
+          0
+        );
+        const start = Math.min(
+          endTick,
+          Math.max(0, this.track.seqBeatsPerBar * this.track.seqBars * tpb - 1)
+        );
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        this.track.elements.push({
+          id,
+          start,
+          lenBeats: Math.max(0.0625, Number(payload.lenBeats || 1)),
+          degree: Number.isFinite(payload.degree) ? payload.degree : 0,
+          octave: Number.isFinite(payload.octave) ? payload.octave : this.track.octave || 4,
+          quality: payload.quality || this.track.quality || 'maj',
+          inversion: Number.isFinite(payload.inversion) ? payload.inversion : 0,
+          extensions: Array.isArray(payload.extensions) ? payload.extensions.slice(0, 8) : [],
+          velocity: Math.max(
+            1,
+            Math.min(127, Number(payload.velocity || this.track.velocity || 96))
+          ),
+          arp: !!payload.arp,
+          arpLenBeats: Number.isFinite(payload.arpLenBeats)
+            ? Math.max(0.0625, payload.arpLenBeats)
+            : 0.25,
+          hold: !!payload.hold,
+        });
+        this.track.selectedElementId = id;
+      },
+      onSelectElement(id) {
+        this.track.selectedElementId = id;
+      },
+      removeSelectedElement() {
+        const id = this.track.selectedElementId;
+        if (!id) return;
+        const i = this.track.elements.findIndex((e) => e.id === id);
+        if (i !== -1) this.track.elements.splice(i, 1);
+        this.track.selectedElementId = null;
+      },
     },
     mounted() {},
   };
@@ -78,6 +229,26 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+  .segment-box {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+  }
+  .segment-box .header {
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .segment-box .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
   }
   .toolbar {
     display: flex;
