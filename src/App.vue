@@ -70,6 +70,20 @@
               <option value="minor">Minor</option>
             </select>
           </span>
+          <span class="spacer" style="flex: 1"></span>
+          <button class="secondary" title="Export session JSON" @click="downloadSession">
+            Export
+          </button>
+          <button class="secondary" title="Import session JSON" @click="triggerImport">
+            Import
+          </button>
+          <input
+            ref="importer"
+            type="file"
+            accept="application/json,.json"
+            style="display: none"
+            @change="handleImportChange"
+          />
         </div>
         <span class="time" style="color: var(--muted); font-size: 12px">
           {{ timeDisplay }}
@@ -209,6 +223,132 @@
       },
     },
     methods: {
+      // ----- Session import/export -----
+      sanitizedTrack(t) {
+        return {
+          id: String(t.id || makeId()),
+          name: String(t.name || 'Track'),
+          root: Number.isFinite(t.root) ? t.root : 0,
+          octave: Number.isFinite(t.octave) ? t.octave : 4,
+          quality: typeof t.quality === 'string' ? t.quality : 'maj',
+          inversion: Number.isFinite(t.inversion) ? t.inversion : 0,
+          extensions: Array.isArray(t.extensions) ? t.extensions.slice(0, 8) : [],
+          velocity: Number.isFinite(t.velocity) ? t.velocity : 96,
+          duration: Number.isFinite(t.duration) ? t.duration : 800,
+          durationBeats: Number.isFinite(t.durationBeats) ? t.durationBeats : 1,
+          arpGap: Number.isFinite(t.arpGap) ? t.arpGap : 0,
+          hold: !!t.hold,
+          sequence: Array.isArray(t.sequence)
+            ? t.sequence.map((ev) => ({
+                id: String(ev.id || makeId()),
+                note: Math.max(0, Math.min(127, Number(ev.note) || 0)),
+                start: Math.max(0, Number(ev.start) || 0),
+                len: Math.max(1, Number(ev.len) || 1),
+                vel: Math.max(1, Math.min(127, Number(ev.vel) || t.velocity || 96)),
+              }))
+            : [],
+          seqGap: Number.isFinite(t.seqGap) ? t.seqGap : 40,
+          synth: {
+            wave: t?.synth?.wave || 'sawtooth',
+            master: Number.isFinite(t?.synth?.master) ? t.synth.master : 0.3,
+            cutoff: Number.isFinite(t?.synth?.cutoff) ? t.synth.cutoff : 8000,
+            resonance: Number.isFinite(t?.synth?.resonance) ? t.synth.resonance : 0.7,
+            attackMs: Number.isFinite(t?.synth?.attackMs) ? t.synth.attackMs : 10,
+            decayMs: Number.isFinite(t?.synth?.decayMs) ? t.synth.decayMs : 180,
+            sustain: Number.isFinite(t?.synth?.sustain) ? t.synth.sustain : 0.8,
+            releaseMs: Number.isFinite(t?.synth?.releaseMs) ? t.synth.releaseMs : 200,
+            detune: Number.isFinite(t?.synth?.detune) ? t.synth.detune : 0,
+          },
+          seqBpm: Number.isFinite(t.seqBpm) ? t.seqBpm : 120,
+          seqBeatsPerBar: Number.isFinite(t.seqBeatsPerBar) ? t.seqBeatsPerBar : 4,
+          seqBars: Number.isFinite(t.seqBars) ? t.seqBars : 2,
+          seqTicksPerBeat: Number.isFinite(t.seqTicksPerBeat) ? t.seqTicksPerBeat : 4,
+        };
+      },
+      sessionToJSON() {
+        return {
+          version: 1,
+          bpm: Number(this.bpm || 120),
+          songKeyRoot: Number(this.songKeyRoot || 0),
+          songKeyMode: this.songKeyMode === 'minor' ? 'minor' : 'major',
+          tracks: this.tracks.map((t) => this.sanitizedTrack(t)),
+          selectedId: this.selectedId,
+        };
+      },
+      downloadSession() {
+        try {
+          const data = this.sessionToJSON();
+          const blob = new Blob([JSON.stringify(data, null, 2)], {
+            type: 'application/json',
+          });
+          const a = document.createElement('a');
+          const url = URL.createObjectURL(blob);
+          a.href = url;
+          const ts = new Date().toISOString().replace(/[:.]/g, '-');
+          a.download = `modelab-session-${ts}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          console.error('Failed to export session', e);
+          alert('Failed to export session JSON.');
+        }
+      },
+      triggerImport() {
+        const el = this.$refs.importer;
+        if (el) el.click();
+      },
+      handleImportChange(e) {
+        const file = e && e.target && e.target.files ? e.target.files[0] : null;
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const obj = JSON.parse(String(reader.result || '{}'));
+            this.loadSession(obj);
+          } catch (err) {
+            console.error('Invalid session JSON', err);
+            alert('Invalid session JSON.');
+          } finally {
+            // reset input so same file can be chosen again
+            e.target.value = '';
+          }
+        };
+        reader.readAsText(file);
+      },
+      loadSession(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        const bpm = Number(obj.bpm);
+        if (Number.isFinite(bpm)) this.bpm = bpm;
+        const root = Number(obj.songKeyRoot);
+        if (Number.isFinite(root)) this.songKeyRoot = root;
+        const mode =
+          obj.songKeyMode === 'minor' ? 'minor' : obj.songKeyMode === 'major' ? 'major' : null;
+        if (mode) this.songKeyMode = mode;
+        const tracks = Array.isArray(obj.tracks) ? obj.tracks : [];
+        const revived = tracks.map((t, idx) => {
+          const s = this.sanitizedTrack(t);
+          const nt = {
+            ...s,
+            synthEngine: new SimpleSynth(),
+            activeNotes: {},
+            heldNotes: new Set(),
+          };
+          // ensure id uniqueness
+          if (!nt.id) nt.id = makeId();
+          // optional: reset seq timers by virtue of new engine
+          return nt;
+        });
+        if (revived.length) {
+          this.tracks = revived;
+          const sel =
+            obj.selectedId && revived.find((t) => t.id === obj.selectedId)
+              ? obj.selectedId
+              : revived[0].id;
+          this.selectedId = sel;
+        }
+      },
       onSeqTick(t) {
         this.seqTick = t;
         this.handleMetronome(t);
