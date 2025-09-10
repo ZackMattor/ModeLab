@@ -29,53 +29,7 @@
       @insert-segment="handleInsertSegment"
     />
     <synth-controls :track="track" />
-    <div v-if="selectedElement" class="segment-box">
-      <div class="header">Segment</div>
-      <div class="controls">
-        <select v-model.number="selectedElement.degree" title="Roman‑numeral degree">
-          <option v-for="opt in degreeOptions" :key="opt.degree" :value="opt.degree">
-            {{ opt.label }}
-          </option>
-        </select>
-        <input
-          type="number"
-          min="0"
-          max="8"
-          v-model.number="selectedElement.octave"
-          title="Octave"
-        />
-        <select v-model="selectedElement.quality" title="Quality">
-          <option v-for="key in sortedQualityKeys(selectedElement.degree)" :key="key" :value="key">
-            {{ CHORD_QUALITIES[key].name }}
-          </option>
-        </select>
-        <select v-model.number="selectedElement.inversion" title="Inversion">
-          <option v-for="i in inversionCount(selectedElement.quality)" :key="i - 1" :value="i - 1">
-            {{ i - 1 }}
-          </option>
-        </select>
-        <select multiple v-model="selectedElement.extensions" title="Extensions">
-          <option v-for="(semi, key) in EXTENSIONS" :key="key" :value="key">{{ key }}</option>
-        </select>
-        <label class="ctl" title="Velocity">
-          Vel <input type="range" min="1" max="127" v-model.number="selectedElement.velocity" />
-        </label>
-        <label class="chk" title="Arpeggiator on/off">
-          <input type="checkbox" v-model="selectedElement.arp" /> Arp
-        </label>
-        <label class="ctl" v-if="selectedElement.arp" title="Arp length (beats)">
-          Arp Len
-          <select v-model.number="selectedElement.arpLenBeats">
-            <option v-for="o in lenBeatOptions" :key="'arp' + o.label" :value="o.beats">
-              {{ o.label }}
-            </option>
-          </select>
-        </label>
-        <button class="small danger" @click="removeSelectedElement" title="Delete segment">
-          Delete
-        </button>
-      </div>
-    </div>
+    <segment-editor :track="track" :song-key-root="songKeyRoot" :song-key-mode="songKeyMode" />
     <div class="toolbar">
       <div class="group">
         <label>Play</label>
@@ -89,6 +43,7 @@
   import TrackSequencer from './TrackSequencer.vue';
   import ChordSelector from './ChordSelector.vue';
   import SynthControls from './SynthControls.vue';
+  import SegmentEditor from './SegmentEditor.vue';
   import {
     CHORD_QUALITIES,
     EXTENSIONS,
@@ -98,7 +53,7 @@
 
   export default {
     name: 'TrackControls',
-    components: { TrackSequencer, ChordSelector, SynthControls },
+    components: { TrackSequencer, ChordSelector, SynthControls, SegmentEditor },
     emits: ['seq-tick', 'seq-state'],
     props: {
       track: { type: Object, required: true },

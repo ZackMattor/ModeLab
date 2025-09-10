@@ -30,6 +30,13 @@
       <button class="small danger" @click="clearSeq" title="Clear">Clear</button>
     </div>
 
+    <div class="seq-above-ruler">
+      <button class="small" @click="addSegmentAtPlayhead" title="Add a new segment at playhead">
+        Add Segment
+      </button>
+      <segment-editor :track="track" :song-key-root="songKeyRoot" :song-key-mode="songKeyMode" />
+    </div>
+
     <div class="ruler-fixed" ref="ruler" @mousedown.stop="onRulerDown">
       <svg :width="svgWTotal" height="16">
         <g>
@@ -285,9 +292,11 @@
     romanForDegree,
     degreeRootForKey,
   } from '../lib/music';
+  import SegmentEditor from './SegmentEditor.vue';
 
   export default {
     name: 'TrackSequencer',
+    components: { SegmentEditor },
     emits: ['tick', 'state'],
     props: {
       track: { type: Object, required: true },
@@ -791,6 +800,33 @@
       clearHover() {
         this.hoverTick = null;
         this.hoverNote = null;
+      },
+      addSegmentAtPlayhead() {
+        const tpb = Math.max(1, Number(this.track.seqTicksPerBeat || 4));
+        // snap to beat
+        const startTick = Math.max(
+          0,
+          Math.min(this.totalTicks - 1, Math.floor(this.playTick / tpb) * tpb)
+        );
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const lenBeats = 1; // default one beat
+        this.track.elements.push({
+          id,
+          start: startTick,
+          lenBeats: Math.max(0.0625, Number(lenBeats)),
+          degree: Number.isFinite(this.track.degree) ? this.track.degree : 0,
+          octave: Number.isFinite(this.track.octave) ? this.track.octave : 4,
+          quality: this.track.quality || 'maj',
+          inversion: Number.isFinite(this.track.inversion) ? this.track.inversion : 0,
+          extensions: Array.isArray(this.track.extensions) ? this.track.extensions.slice(0, 8) : [],
+          velocity: Math.max(1, Math.min(127, Number(this.track.velocity || 96))),
+          arp: !!this.track.arp,
+          arpLenBeats: Number.isFinite(this.track.arpLenBeats)
+            ? Math.max(0.0625, this.track.arpLenBeats)
+            : 0.25,
+          hold: !!this.track.hold,
+        });
+        this.track.selectedElementId = id;
       },
     },
     mounted() {
