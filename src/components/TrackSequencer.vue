@@ -119,7 +119,7 @@
                 class="segment-label"
                 @mousedown.stop="onElementDown($event, el)"
               >
-                {{ rnForDegree(el.degree || 0, el.quality) }}
+                {{ rnLabelForElement(el) }}
               </text>
             </g>
           </g>
@@ -279,12 +279,13 @@
     NOTE_NAMES,
     CHORD_QUALITIES,
     EXTENSIONS,
-    computeChordNotes,
+    computeStructuredChordNotes,
     applyInversion,
     isBlack,
     scaleDegreeSemitones,
     romanForDegree,
     degreeRootForKey,
+    diatonicTriadQuality,
   } from '../lib/music';
   import SegmentEditor from './SegmentEditor.vue';
 
@@ -364,20 +365,34 @@
         return romanForDegree(idx, this.songKeyMode);
       },
       rnForDegree(i, quality) {
-        // Wrapper so template can call it; uses current key mode
+        // Wrapper retained for potential other callers
         return romanForDegree(i, this.songKeyMode, quality);
+      },
+      rnLabelForElement(el) {
+        const degree = Number.isFinite(el.degree) ? el.degree : 0;
+        const baseQuality = el.baseQuality || diatonicTriadQuality(degree, this.songKeyMode);
+        let rn = romanForDegree(degree, this.songKeyMode, baseQuality);
+        const seventh = el.seventh || 'none';
+        if (seventh === 'b7') rn += '7';
+        else if (seventh === 'maj7') rn += 'M7';
+        else if (seventh === 'dim7') rn += '°7';
+        else if (seventh === 'half-dim') rn += 'ø7';
+        if (el.add6) rn += '6';
+        return rn;
       },
       chordNotesForElement(el) {
         const degree = Number.isFinite(el.degree) ? el.degree : 0;
         const rootPc = degreeRootForKey(this.songKeyRoot, this.songKeyMode, degree);
-        const chordTrackLike = {
+        return computeStructuredChordNotes({
           root: rootPc,
           octave: Number.isFinite(el.octave) ? el.octave : this.track.octave || 4,
-          quality: el.quality || this.track.quality || 'maj',
-          inversion: Number.isFinite(el.inversion) ? el.inversion : 0,
+          baseQuality: el.baseQuality || diatonicTriadQuality(degree, this.songKeyMode),
+          seventh: el.seventh || 'none',
+          add6: !!el.add6,
           extensions: Array.isArray(el.extensions) ? el.extensions : [],
-        };
-        return applyInversion(computeChordNotes(chordTrackLike), chordTrackLike.inversion);
+          alterations: Array.isArray(el.alterations) ? el.alterations : [],
+          inversion: Number.isFinite(el.inversion) ? el.inversion : 0,
+        });
       },
       ghostRectsForElement(el) {
         const notes = this.chordNotesForElement(el);
@@ -627,17 +642,16 @@
         const vel = Math.max(1, Math.min(127, Number(el.velocity || this.track.velocity || 96)));
         const degree = Number.isFinite(el.degree) ? el.degree : 0;
         const rootPc = degreeRootForKey(this.songKeyRoot, this.songKeyMode, degree);
-        const chordTrackLike = {
+        const chordNotes = computeStructuredChordNotes({
           root: rootPc,
           octave: Number.isFinite(el.octave) ? el.octave : this.track.octave || 4,
-          quality: el.quality || this.track.quality || 'maj',
-          inversion: Number.isFinite(el.inversion) ? el.inversion : 0,
+          baseQuality: el.baseQuality || diatonicTriadQuality(degree, this.songKeyMode),
+          seventh: el.seventh || 'none',
+          add6: !!el.add6,
           extensions: Array.isArray(el.extensions) ? el.extensions : [],
-        };
-        const chordNotes = applyInversion(
-          computeChordNotes(chordTrackLike),
-          chordTrackLike.inversion
-        );
+          alterations: Array.isArray(el.alterations) ? el.alterations : [],
+          inversion: Number.isFinite(el.inversion) ? el.inversion : 0,
+        });
         const lenBeats = Math.max(0.0625, Number(el.lenBeats || 1));
         const durMs = lenBeats * this.msPerTick() * this.ticksPerBeat;
         if (el.arp) {
@@ -789,13 +803,14 @@
             ? this.track.degree
             : 0;
         const octave = Number.isFinite(payload.octave) ? payload.octave : this.track.octave || 4;
-        const quality = payload.quality || this.track.quality || 'maj';
+        const baseQuality = payload.baseQuality || diatonicTriadQuality(degree, this.songKeyMode);
+        const seventh = payload.seventh || 'none';
+        const add6 = !!(payload.add6 ?? false);
         const inversion = Number.isFinite(payload.inversion) ? payload.inversion : 0;
-        const extensions = Array.isArray(payload.extensions)
-          ? payload.extensions.slice(0, 8)
-          : Array.isArray(this.track.extensions)
-            ? this.track.extensions.slice(0, 8)
-            : [];
+        const extensions = Array.isArray(payload.extensions) ? payload.extensions.slice(0, 8) : [];
+        const alterations = Array.isArray(payload.alterations)
+          ? payload.alterations.slice(0, 8)
+          : [];
         const velocity = Math.max(
           1,
           Math.min(127, Number(payload.velocity || this.track.velocity || 96))
@@ -811,9 +826,12 @@
           lenBeats,
           degree,
           octave,
-          quality,
+          baseQuality,
+          seventh,
+          add6,
           inversion,
           extensions,
+          alterations,
           velocity,
           arp,
           arpLenBeats,

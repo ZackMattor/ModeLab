@@ -31,6 +31,78 @@ export function computeChordNotes({ root, octave, quality, extensions }) {
   return base.concat(ext).sort((a, b) => a - b);
 }
 
+// Structured chord computation (triad + seventh + add6 + tensions + alterations)
+export function computeStructuredChordNotes(cfg) {
+  const {
+    root = 0,
+    octave = 4,
+    baseQuality = 'maj',
+    seventh = 'none', // 'none'|'b7'|'maj7'|'dim7'|'half-dim'
+    add6 = false,
+    extensions = [], // '9'|'11'|'13'
+    alterations = [], // 'b9'|'#9'|'#11'|'b13'
+    inversion = 0,
+  } = cfg || {};
+  const rootMidi = (octave + 1) * 12 + (root % 12);
+  const uniq = (arr) => Array.from(new Set(arr)).sort((a, b) => a - b);
+
+  // Triad intervals
+  let triad;
+  switch (baseQuality) {
+    case 'min':
+      triad = [0, 3, 7];
+      break;
+    case 'dim':
+      triad = [0, 3, 6];
+      break;
+    case 'aug':
+      triad = [0, 4, 8];
+      break;
+    case 'sus2':
+      triad = [0, 2, 7];
+      break;
+    case 'sus4':
+      triad = [0, 5, 7];
+      break;
+    case 'maj':
+    default:
+      triad = [0, 4, 7];
+      break;
+  }
+
+  let intervals = triad.slice();
+
+  // Seventh handling
+  if (seventh && seventh !== 'none') {
+    if (seventh === 'maj7') intervals.push(11);
+    else if (seventh === 'b7') intervals.push(10);
+    else if (seventh === 'dim7') intervals.push(9);
+    else if (seventh === 'half-dim') {
+      // Ensure diminished triad + b7
+      intervals = [0, 3, 6, 10];
+    }
+  }
+
+  // Add 6
+  if (add6) intervals.push(9);
+
+  // Tensions
+  const tensionMap = { 9: 14, 11: 17, 13: 21 };
+  for (const t of Array.isArray(extensions) ? extensions : []) {
+    const sem = tensionMap[t];
+    if (Number.isFinite(sem)) intervals.push(sem);
+  }
+
+  // Alterations
+  for (const alt of Array.isArray(alterations) ? alterations : []) {
+    const sem = EXTENSIONS[alt];
+    if (Number.isFinite(sem)) intervals.push(sem);
+  }
+
+  const notes = uniq(intervals).map((semi) => rootMidi + semi);
+  return applyInversion(notes, inversion || 0);
+}
+
 export function applyInversion(notes, inversion) {
   const n = notes.slice();
   const inv = Math.max(0, Math.min(inversion || 0, Math.max(0, n.length - 1)));

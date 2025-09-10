@@ -12,19 +12,50 @@
         </option>
       </select>
       <input type="number" min="0" max="8" v-model.number="selectedElement.octave" title="Octave" />
-      <select v-model="selectedElement.quality" title="Quality">
-        <option v-for="key in sortedQualityKeys(selectedElement.degree)" :key="key" :value="key">
-          {{ CHORD_QUALITIES[key].name }}
-        </option>
+      <!-- Base triad -->
+      <select v-model="selectedElement.baseQuality" title="Base triad">
+        <option value="maj">Major</option>
+        <option value="min">Minor</option>
+        <option value="dim">Diminished</option>
+        <option value="aug">Augmented</option>
+        <option value="sus2">Sus2</option>
+        <option value="sus4">Sus4</option>
       </select>
+      <!-- Seventh -->
+      <select v-model="selectedElement.seventh" title="7th">
+        <option value="none">No 7th</option>
+        <option value="b7">b7 (dominant/min7)</option>
+        <option value="maj7">maj7</option>
+        <option value="dim7">dim7</option>
+        <option value="half-dim">m7b5 (half-dim)</option>
+      </select>
+      <!-- Add 6 -->
+      <label class="chk" title="Add 6">
+        <input type="checkbox" v-model="selectedElement.add6" /> 6
+      </label>
       <select v-model.number="selectedElement.inversion" title="Inversion">
         <option v-for="i in inversionCount(selectedElement.quality)" :key="i - 1" :value="i - 1">
           {{ i - 1 }}
         </option>
       </select>
-      <select multiple v-model="selectedElement.extensions" title="Extensions">
-        <option v-for="(semi, key) in EXTENSIONS" :key="key" :value="key">{{ key }}</option>
-      </select>
+      <!-- Tensions and alterations -->
+      <label class="ctl" title="Tensions"
+        >Tens
+        <select multiple v-model="selectedElement.extensions">
+          <option value="9">9</option>
+          <option value="11">11</option>
+          <option value="13">13</option>
+        </select>
+      </label>
+      <label class="ctl" title="Alterations"
+        >Alt
+        <select multiple v-model="selectedElement.alterations">
+          <option value="b9">b9</option>
+          <option value="#9">#9</option>
+          <option value="#11">#11</option>
+          <option value="b13">b13</option>
+        </select>
+      </label>
       <label class="ctl" title="Velocity">
         Vel <input type="range" min="1" max="127" v-model.number="selectedElement.velocity" />
       </label>
@@ -92,24 +123,14 @@
       },
     },
     methods: {
-      inversionCount(qualityKey) {
-        return CHORD_QUALITIES[qualityKey]?.intervals.length || 1;
-      },
-      sortedQualityKeys(degreeIdx) {
-        const diatonic = diatonicTriadQuality(
-          Number.isFinite(degreeIdx) ? degreeIdx : 0,
-          this.songKeyMode
-        );
-        return Object.keys(CHORD_QUALITIES).sort((a, b) => {
-          if (a === diatonic && b !== diatonic) return -1;
-          if (b === diatonic && a !== diatonic) return 1;
-          return CHORD_QUALITIES[a].name.localeCompare(CHORD_QUALITIES[b].name);
-        });
+      inversionCount() {
+        return 4;
       },
       alignQualityToKey() {
         if (!this.selectedElement) return;
         const deg = Number.isFinite(this.selectedElement.degree) ? this.selectedElement.degree : 0;
-        this.selectedElement.quality = diatonicTriadQuality(deg, this.songKeyMode);
+        this.selectedElement.baseQuality = diatonicTriadQuality(deg, this.songKeyMode);
+        if (!this.selectedElement.seventh) this.selectedElement.seventh = 'none';
       },
       removeSelectedElement() {
         const id = this.track.selectedElementId;
@@ -117,6 +138,14 @@
         const i = this.track.elements.findIndex((e) => e.id === id);
         if (i !== -1) this.track.elements.splice(i, 1);
         this.track.selectedElementId = null;
+      },
+    },
+    watch: {
+      'selectedElement.seventh'(val) {
+        if (!this.selectedElement) return;
+        if (val === 'half-dim' || val === 'dim7') {
+          this.selectedElement.baseQuality = 'dim';
+        }
       },
     },
   };

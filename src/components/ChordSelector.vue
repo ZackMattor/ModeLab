@@ -15,15 +15,25 @@
           v-model.number="track.octave"
           :title="'Octave for chord root (C4=60)'"
         />
-        <select
-          v-model="track.quality"
-          @change="resetInversion"
-          :title="'Chord quality (triad/seventh)'"
-        >
-          <option v-for="key in sortedQualityKeys" :key="key" :value="key">
-            {{ CHORD_QUALITIES[key].name }}
-          </option>
+        <!-- Base triad quality -->
+        <select v-model="baseQualityProxy" @change="resetInversion" :title="'Base triad'">
+          <option value="maj">Major</option>
+          <option value="min">Minor</option>
+          <option value="dim">Diminished</option>
+          <option value="aug">Augmented</option>
+          <option value="sus2">Sus2</option>
+          <option value="sus4">Sus4</option>
         </select>
+        <!-- Seventh -->
+        <select v-model="seventhProxy" :title="'7th'">
+          <option value="none">No 7th</option>
+          <option value="b7">b7 (dominant/min7)</option>
+          <option value="maj7">maj7</option>
+          <option value="dim7">dim7</option>
+          <option value="half-dim">m7b5 (half‑dim)</option>
+        </select>
+        <!-- Add 6 -->
+        <label class="chk" title="Add 6"> <input type="checkbox" v-model="track.add6" /> 6 </label>
         <select
           v-model.number="track.inversion"
           :title="'Inversion (move lowest notes up by octaves)'"
@@ -37,6 +47,15 @@
         >
           <option v-for="(semi, key) in EXTENSIONS" :key="key" :value="key">{{ key }}</option>
         </select>
+        <label class="ctl" title="Alterations">
+          Alt
+          <select multiple v-model="track.alterations">
+            <option value="b9">b9</option>
+            <option value="#9">#9</option>
+            <option value="#11">#11</option>
+            <option value="b13">b13</option>
+          </select>
+        </label>
         <!-- Play/export settings -->
         <label class="ctl" title="Velocity (1–127)">
           Vel <input type="range" min="1" max="127" v-model.number="track.velocity" />
@@ -72,10 +91,9 @@
 <script>
   import {
     NOTE_NAMES,
-    CHORD_QUALITIES,
     EXTENSIONS,
     noteName,
-    computeChordNotes,
+    computeStructuredChordNotes,
     applyInversion,
     scaleDegreeSemitones,
     degreeRootForKey,
@@ -94,7 +112,7 @@
       collapsed: { type: Boolean, default: false },
     },
     data() {
-      return { NOTE_NAMES, CHORD_QUALITIES, EXTENSIONS };
+      return { NOTE_NAMES, EXTENSIONS };
     },
     computed: {
       lenBeatOptions() {
@@ -133,33 +151,59 @@
           this.setDegree(i);
         },
       },
-      sortedQualityKeys() {
-        const degIdx = this.degreeOptions.findIndex((o) => o.rootPc === this.track.root % 12);
-        const diatonic = diatonicTriadQuality(degIdx >= 0 ? degIdx : 0, this.songKeyMode);
-        return Object.keys(CHORD_QUALITIES).sort((a, b) => {
-          if (a === diatonic && b !== diatonic) return -1;
-          if (b === diatonic && a !== diatonic) return 1;
-          return CHORD_QUALITIES[a].name.localeCompare(CHORD_QUALITIES[b].name);
-        });
-      },
       inversionCount() {
-        return CHORD_QUALITIES[this.track.quality]?.intervals.length || 1;
+        return 4;
       },
       chordNotes() {
-        const base = computeChordNotes(this.track);
-        return applyInversion(base, this.track.inversion);
+        const cfg = {
+          root: this.track.root,
+          octave: this.track.octave,
+          baseQuality: this.track.baseQuality || 'maj',
+          seventh: this.track.seventh || 'none',
+          add6: !!this.track.add6,
+          extensions: Array.isArray(this.track.extensions) ? this.track.extensions : [],
+          alterations: Array.isArray(this.track.alterations) ? this.track.alterations : [],
+          inversion: this.track.inversion || 0,
+        };
+        const base = computeStructuredChordNotes(cfg);
+        return base;
       },
       notesDisplay() {
         return this.chordNotes.length
           ? this.chordNotes.map((n) => `${noteName(n)} (${n})`).join('  ·  ')
           : '–';
       },
+      baseQualityProxy: {
+        get() {
+          return this.track.baseQuality || 'maj';
+        },
+        set(v) {
+          this.$set ? this.$set(this.track, 'baseQuality', v) : (this.track.baseQuality = v);
+        },
+      },
+      seventhProxy: {
+        get() {
+          return this.track.seventh || 'none';
+        },
+        set(v) {
+          // Enforce triad base for half-dim/dim7
+          if (v === 'half-dim' || v === 'dim7') {
+            this.$set
+              ? this.$set(this.track, 'baseQuality', 'dim')
+              : (this.track.baseQuality = 'dim');
+          }
+          this.$set ? this.$set(this.track, 'seventh', v) : (this.track.seventh = v);
+        },
+      },
     },
     methods: {
       setDegree(i) {
         const rootPc = degreeRootForKey(this.songKeyRoot, this.songKeyMode, i);
         this.track.root = rootPc;
-        this.track.quality = diatonicTriadQuality(i, this.songKeyMode);
+        // Align defaults to key
+        const q = diatonicTriadQuality(i, this.songKeyMode);
+        this.$set ? this.$set(this.track, 'baseQuality', q) : (this.track.baseQuality = q);
+        if (!this.track.seventh) this.track.seventh = 'none';
       },
       resetInversion() {
         this.track.inversion = 0;
@@ -212,9 +256,12 @@
         this.$emit('insert-segment', {
           degree,
           octave: this.track.octave,
-          quality: this.track.quality,
+          baseQuality: this.track.baseQuality || 'maj',
+          seventh: this.track.seventh || 'none',
+          add6: !!this.track.add6,
           inversion: this.track.inversion,
-          extensions: this.track.extensions.slice(),
+          extensions: (this.track.extensions || []).slice(),
+          alterations: (this.track.alterations || []).slice(),
           velocity: Math.max(1, Math.min(127, Number(this.track.velocity || 96))),
           lenBeats: Math.max(0.0625, Number(this.track.durationBeats || 1)),
           arp: !!(Number(this.track.arpGap || 0) > 0),

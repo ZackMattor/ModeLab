@@ -151,6 +151,12 @@
     name: `Track ${idx}`,
     root: 0,
     octave: 4,
+    // Structured chord settings for the ChordSelector
+    baseQuality: 'maj',
+    seventh: 'none',
+    add6: false,
+    alterations: [],
+    // legacy field retained for backward import compatibility
     quality: 'maj',
     inversion: 0,
     extensions: [],
@@ -228,11 +234,61 @@
     methods: {
       // ----- Session import/export -----
       sanitizedTrack(t) {
+        const mapLegacyQuality = (q) => {
+          switch (q) {
+            case 'maj':
+            case 'min':
+            case 'dim':
+            case 'aug':
+            case 'sus2':
+            case 'sus4':
+              return { baseQuality: q, seventh: 'none', add6: false };
+            case 'maj6':
+              return { baseQuality: 'maj', seventh: 'none', add6: true };
+            case 'm6':
+              return { baseQuality: 'min', seventh: 'none', add6: true };
+            case '7':
+              return { baseQuality: 'maj', seventh: 'b7', add6: false };
+            case 'maj7':
+              return { baseQuality: 'maj', seventh: 'maj7', add6: false };
+            case 'm7':
+              return { baseQuality: 'min', seventh: 'b7', add6: false };
+            case 'mMaj7':
+              return { baseQuality: 'min', seventh: 'maj7', add6: false };
+            case 'dim7':
+              return { baseQuality: 'dim', seventh: 'dim7', add6: false };
+            case 'm7b5':
+              return { baseQuality: 'dim', seventh: 'half-dim', add6: false };
+            default:
+              return { baseQuality: 'maj', seventh: 'none', add6: false };
+          }
+        };
         return {
           id: String(t.id || makeId()),
           name: String(t.name || 'Track'),
           root: Number.isFinite(t.root) ? t.root : 0,
           octave: Number.isFinite(t.octave) ? t.octave : 4,
+          // structured chord fields for ChordSelector
+          baseQuality:
+            typeof t.baseQuality === 'string'
+              ? t.baseQuality
+              : typeof t.quality === 'string'
+                ? mapLegacyQuality(t.quality).baseQuality
+                : 'maj',
+          seventh:
+            typeof t.seventh === 'string'
+              ? t.seventh
+              : typeof t.quality === 'string'
+                ? mapLegacyQuality(t.quality).seventh
+                : 'none',
+          add6:
+            typeof t.add6 === 'boolean'
+              ? !!t.add6
+              : typeof t.quality === 'string'
+                ? !!mapLegacyQuality(t.quality).add6
+                : false,
+          alterations: Array.isArray(t.alterations) ? t.alterations.slice(0, 8) : [],
+          // legacy passthrough (not used by UI anymore)
           quality: typeof t.quality === 'string' ? t.quality : 'maj',
           inversion: Number.isFinite(t.inversion) ? t.inversion : 0,
           extensions: Array.isArray(t.extensions) ? t.extensions.slice(0, 8) : [],
@@ -257,9 +313,28 @@
                 lenBeats: Number.isFinite(el.lenBeats) ? Math.max(0.0625, el.lenBeats) : 1,
                 degree: Number.isFinite(el.degree) ? el.degree : 0,
                 octave: Number.isFinite(el.octave) ? el.octave : 4,
-                quality: typeof el.quality === 'string' ? el.quality : 'maj',
+                // structured chord per segment
+                baseQuality:
+                  typeof el.baseQuality === 'string'
+                    ? el.baseQuality
+                    : typeof el.quality === 'string'
+                      ? mapLegacyQuality(el.quality).baseQuality
+                      : 'maj',
+                seventh:
+                  typeof el.seventh === 'string'
+                    ? el.seventh
+                    : typeof el.quality === 'string'
+                      ? mapLegacyQuality(el.quality).seventh
+                      : 'none',
+                add6:
+                  typeof el.add6 === 'boolean'
+                    ? !!el.add6
+                    : typeof el.quality === 'string'
+                      ? !!mapLegacyQuality(el.quality).add6
+                      : false,
                 inversion: Number.isFinite(el.inversion) ? el.inversion : 0,
                 extensions: Array.isArray(el.extensions) ? el.extensions.slice(0, 8) : [],
+                alterations: Array.isArray(el.alterations) ? el.alterations.slice(0, 8) : [],
                 velocity: Number.isFinite(el.velocity) ? el.velocity : t.velocity || 96,
                 arp: !!el.arp || (Number.isFinite(el.arpBeats) && el.arpBeats > 0),
                 arpLenBeats: Number.isFinite(el.arpLenBeats)
