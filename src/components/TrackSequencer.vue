@@ -85,21 +85,38 @@
               :class="['segment', track.selectedElementId === el.id ? 'selected' : '']"
               @mousedown.stop="onElementDown($event, el)"
             />
+            <!-- Visible grips for element edges -->
             <rect
-              :x="gutter + el.start * pxPerTick - 2"
+              :x="gutter + el.start * pxPerTick - 1"
               y="2"
-              width="4"
+              width="2"
               height="12"
-              class="segment-handle"
-              @mousedown.stop="onElementDown($event, el, 'resize-left')"
+              class="seg-edge seg-edge-start"
             />
             <rect
-              :x="gutter + (el.start + elTicks(el)) * pxPerTick - 2"
+              :x="gutter + (el.start + elTicks(el)) * pxPerTick - 1"
               y="2"
-              width="4"
+              width="2"
+              height="12"
+              class="seg-edge seg-edge-end"
+            />
+            <rect
+              :x="gutter + el.start * pxPerTick - 5"
+              y="2"
+              width="10"
               height="12"
               class="segment-handle"
-              @mousedown.stop="onElementDown($event, el, 'resize-right')"
+              pointer-events="all"
+              @mousedown.stop.prevent="onElementDown($event, el, 'resize-left')"
+            />
+            <rect
+              :x="gutter + (el.start + elTicks(el)) * pxPerTick - 5"
+              y="2"
+              width="10"
+              height="12"
+              class="segment-handle"
+              pointer-events="all"
+              @mousedown.stop.prevent="onElementDown($event, el, 'resize-right')"
             />
             <text
               :x="gutter + el.start * pxPerTick + 4"
@@ -169,6 +186,7 @@
               :width="Math.max(4, ev.len * pxPerTick)"
               :height="rowH - 2"
               class="note"
+              @mousedown.stop.prevent="onNoteDown($event, ev, 'move')"
             />
             <!-- Visual edge markers for clarity -->
             <rect
@@ -186,18 +204,22 @@
               class="edge edge-end"
             />
             <rect
-              :x="gutter + ev.start * pxPerTick - 2"
+              :x="gutter + ev.start * pxPerTick - 4"
               :y="yForNote(ev.note) + 16"
-              width="4"
+              width="12"
               :height="rowH - 2"
               class="handle"
+              pointer-events="all"
+              @mousedown.stop.prevent="onNoteDown($event, ev, 'resize-left')"
             />
             <rect
-              :x="gutter + (ev.start + ev.len) * pxPerTick - 2"
+              :x="gutter + (ev.start + ev.len) * pxPerTick - 4"
               :y="yForNote(ev.note) + 16"
-              width="4"
+              width="12"
               :height="rowH - 2"
               class="handle"
+              pointer-events="all"
+              @mousedown.stop.prevent="onNoteDown($event, ev, 'resize-right')"
             />
           </g>
         </g>
@@ -439,6 +461,25 @@
         window.addEventListener('mousemove', this.onMove);
         window.addEventListener('mouseup', this.onUp);
       },
+      onNoteDown(e, ev, mode) {
+        // Direct note interaction with explicit mode (move/resize-left/resize-right)
+        const rect = this.$refs.roll.getBoundingClientRect();
+        const x = e.clientX - rect.left + this.$refs.roll.scrollLeft;
+        const yAll = e.clientY - rect.top + this.$refs.roll.scrollTop;
+        const y = yAll - 16; // account for ruler height
+        this.drag = {
+          kind: 'note',
+          mode: mode || 'move',
+          id: ev.id,
+          start0: ev.start,
+          len0: ev.len,
+          note0: ev.note,
+          x0: x,
+          y0: y,
+        };
+        window.addEventListener('mousemove', this.onMove);
+        window.addEventListener('mouseup', this.onUp);
+      },
       onDown(e) {
         const rect = this.$refs.roll.getBoundingClientRect();
         const x = e.clientX - rect.left + this.$refs.roll.scrollLeft;
@@ -460,12 +501,16 @@
           return;
         }
         const y = yAll - 16; // account for ruler
-        const ev = this.findEventAt(x, y);
+        let ev = this.findEventAt(x, y);
         if (ev) {
-          const t = this.tickForX(x);
+          const px = x - this.gutter;
+          const leftX = ev.start * this.pxPerTick;
+          const rightX = (ev.start + ev.len) * this.pxPerTick;
+          const thresh = 8; // tolerance for edge grabs
           let mode = 'move';
-          if (Math.abs(x - ev.start * this.pxPerTick) <= 6) mode = 'resize-left';
-          if (Math.abs(x - (ev.start + ev.len) * this.pxPerTick) <= 6) mode = 'resize-right';
+          if (px <= leftX + thresh) mode = 'resize-left';
+          else if (px >= rightX - thresh) mode = 'resize-right';
+
           this.drag = {
             mode,
             id: ev.id,
@@ -476,21 +521,52 @@
             y0: y,
           };
         } else {
-          const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          // Fallback: if click is near an edge but just outside the note bounds, treat as resize
           const note = this.noteForY(y);
-          const start = this.tickForX(x);
-          const len = Math.max(1, Math.round(this.ticksPerBeat / 2));
-          const obj = { id, note, start, len, vel: this.track.velocity };
-          this.track.sequence.push(obj);
-          this.drag = {
-            mode: 'resize-right',
-            id,
-            start0: start,
-            len0: len,
-            note0: note,
-            x0: x,
-            y0: y,
-          };
+          const px = x - this.gutter;
+          const thresh = 8;
+          let hit = null;
+          for (const cand of this.track.sequence) {
+            if (cand.note !== note) continue;
+            const leftX = cand.start * this.pxPerTick;
+            const rightX = (cand.start + cand.len) * this.pxPerTick;
+            if (px <= leftX + thresh && px >= leftX - thresh) {
+              hit = { ev: cand, mode: 'resize-left' };
+              break;
+            }
+            if (px >= rightX - thresh && px <= rightX + thresh) {
+              hit = { ev: cand, mode: 'resize-right' };
+              break;
+            }
+          }
+          if (hit) {
+            ev = hit.ev;
+            this.drag = {
+              mode: hit.mode,
+              id: ev.id,
+              start0: ev.start,
+              len0: ev.len,
+              note0: ev.note,
+              x0: x,
+              y0: y,
+            };
+          } else {
+            const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            const note = this.noteForY(y);
+            const start = this.tickForX(x);
+            const len = Math.max(1, Math.round(this.ticksPerBeat / 2));
+            const obj = { id, note, start, len, vel: this.track.velocity };
+            this.track.sequence.push(obj);
+            this.drag = {
+              mode: 'resize-right',
+              id,
+              start0: start,
+              len0: len,
+              note0: note,
+              x0: x,
+              y0: y,
+            };
+          }
         }
         window.addEventListener('mousemove', this.onMove);
         window.addEventListener('mouseup', this.onUp);
@@ -509,11 +585,10 @@
             const newLen = Math.max(1, this.drag.len0 + dxTicks);
             el.lenBeats = Math.max(0.0625, newLen / this.ticksPerBeat);
           } else if (this.drag.mode === 'resize-left') {
-            const newStart = Math.max(0, this.drag.start0 + dxTicks);
-            const elStart = this.track.elements.find((s) => s.id === this.drag.id)?.start ?? 0;
-            const delta = elStart - newStart;
-            const newLen = Math.max(1, this.drag.len0 + delta);
-            if (el) el.start = newStart;
+            const newStart = Math.max(0, Math.min(this.totalTicks - 1, this.drag.start0 + dxTicks));
+            const deltaStart = this.drag.start0 - newStart;
+            const newLen = Math.max(1, this.drag.len0 + deltaStart);
+            el.start = newStart;
             el.lenBeats = Math.max(0.0625, newLen / this.ticksPerBeat);
           }
           return;
@@ -530,10 +605,10 @@
         } else if (this.drag.mode === 'resize-right') {
           ev.len = Math.max(1, this.drag.len0 + dxTicks);
         } else if (this.drag.mode === 'resize-left') {
-          const newStart = Math.max(0, this.drag.start0 + dxTicks);
-          const delta = ev.start - newStart;
+          const newStart = Math.max(0, Math.min(this.totalTicks - 1, this.drag.start0 + dxTicks));
+          const deltaStart = this.drag.start0 - newStart;
           ev.start = newStart;
-          ev.len = Math.max(1, this.drag.len0 + delta);
+          ev.len = Math.max(1, this.drag.len0 + deltaStart);
         }
       },
       onUp() {
@@ -779,7 +854,7 @@
     border: 1px solid var(--border);
     border-radius: 6px;
     background: #0b0f20;
-    max-height: 260px;
+    max-height: 520px;
   }
   .roll {
     border-top-left-radius: 0;
@@ -837,10 +912,20 @@
     pointer-events: none;
   }
   .edge-start {
-    fill: rgba(0, 0, 0, 0.45);
+    fill: rgba(255, 255, 255, 0.7);
   }
   .edge-end {
     fill: rgba(255, 255, 255, 0.7);
+  }
+  /* Visible grips for elements lane */
+  .seg-edge {
+    pointer-events: none;
+  }
+  .seg-edge-start {
+    fill: rgba(255, 255, 255, 0.6);
+  }
+  .seg-edge-end {
+    fill: rgba(255, 255, 255, 0.9);
   }
   .handle {
     fill: rgba(255, 255, 255, 0.001);
@@ -871,6 +956,8 @@
   .segment.selected {
     fill: #5bcf79;
     stroke: #aef2bf;
+    stroke-width: 1.5;
+    filter: drop-shadow(0 0 2px rgba(174, 242, 191, 0.6));
   }
   .segment-handle {
     fill: rgba(255, 255, 255, 0.001);

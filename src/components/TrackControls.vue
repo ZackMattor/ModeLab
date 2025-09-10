@@ -1,10 +1,30 @@
 <template>
   <div class="track-controls compact">
+    <div class="toolbar" style="justify-content: space-between">
+      <div class="group">
+        <button class="secondary" @click="showChordSettings = !showChordSettings">
+          {{ showChordSettings ? 'Hide' : 'Show' }} Chord Settings
+        </button>
+      </div>
+    </div>
+
+    <track-sequencer
+      ref="seq"
+      :track="track"
+      :song-key-root="songKeyRoot"
+      :song-key-mode="songKeyMode"
+      :bpm="bpm"
+      @tick="$emit('seq-tick', $event)"
+      @state="$emit('seq-state', $event)"
+      @select-element="onSelectElement"
+    />
+
     <chord-selector
       :track="track"
       :song-key-root="songKeyRoot"
       :song-key-mode="songKeyMode"
       :bpm="bpm"
+      :collapsed="!showChordSettings"
       @insert="handleInsertChord"
       @insert-segment="handleInsertSegment"
     />
@@ -62,17 +82,6 @@
         <button class="secondary" @click="stopAll" title="Stop">■</button>
       </div>
     </div>
-
-    <track-sequencer
-      ref="seq"
-      :track="track"
-      :song-key-root="songKeyRoot"
-      :song-key-mode="songKeyMode"
-      :bpm="bpm"
-      @tick="$emit('seq-tick', $event)"
-      @state="$emit('seq-state', $event)"
-      @select-element="onSelectElement"
-    />
   </div>
 </template>
 
@@ -98,7 +107,7 @@
       bpm: { type: Number, default: 120 },
     },
     data() {
-      return { CHORD_QUALITIES, EXTENSIONS };
+      return { CHORD_QUALITIES, EXTENSIONS, showChordSettings: false };
     },
     computed: {
       selectedElement() {
@@ -106,6 +115,7 @@
         if (!id) return null;
         return this.track.elements.find((e) => e.id === id) || null;
       },
+
       lenBeatOptions() {
         return [
           { label: '1/32', beats: 0.125 },
