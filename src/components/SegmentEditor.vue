@@ -2,7 +2,11 @@
   <div v-if="selectedElement" class="segment-box" :class="{ inline: inline }">
     <div class="header">Segment</div>
     <div class="controls">
-      <select v-model.number="selectedElement.degree" title="Roman‑numeral degree">
+      <select
+        v-model.number="selectedElement.degree"
+        title="Roman‑numeral degree"
+        @change="alignQualityToKey"
+      >
         <option v-for="opt in degreeOptions" :key="opt.degree" :value="opt.degree">
           {{ opt.label }}
         </option>
@@ -47,7 +51,13 @@
 </template>
 
 <script>
-  import { CHORD_QUALITIES, EXTENSIONS, scaleDegreeSemitones } from '../lib/music';
+  import {
+    CHORD_QUALITIES,
+    EXTENSIONS,
+    scaleDegreeSemitones,
+    romanForDegree,
+    diatonicTriadQuality,
+  } from '../lib/music';
 
   export default {
     name: 'SegmentEditor',
@@ -77,10 +87,8 @@
         ];
       },
       degreeOptions() {
-        // Simple RN labels I–VII based on scale degrees for current mode
-        const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
         const semis = scaleDegreeSemitones(this.songKeyMode);
-        return semis.map((_, i) => ({ degree: i, label: roman[i % 7] }));
+        return semis.map((_, i) => ({ degree: i, label: romanForDegree(i, this.songKeyMode) }));
       },
     },
     methods: {
@@ -88,10 +96,20 @@
         return CHORD_QUALITIES[qualityKey]?.intervals.length || 1;
       },
       sortedQualityKeys(degreeIdx) {
-        // Neutral alphabetical sorting of quality names, keeping it simple
-        return Object.keys(CHORD_QUALITIES).sort((a, b) =>
-          CHORD_QUALITIES[a].name.localeCompare(CHORD_QUALITIES[b].name)
+        const diatonic = diatonicTriadQuality(
+          Number.isFinite(degreeIdx) ? degreeIdx : 0,
+          this.songKeyMode
         );
+        return Object.keys(CHORD_QUALITIES).sort((a, b) => {
+          if (a === diatonic && b !== diatonic) return -1;
+          if (b === diatonic && a !== diatonic) return 1;
+          return CHORD_QUALITIES[a].name.localeCompare(CHORD_QUALITIES[b].name);
+        });
+      },
+      alignQualityToKey() {
+        if (!this.selectedElement) return;
+        const deg = Number.isFinite(this.selectedElement.degree) ? this.selectedElement.degree : 0;
+        this.selectedElement.quality = diatonicTriadQuality(deg, this.songKeyMode);
       },
       removeSelectedElement() {
         const id = this.track.selectedElementId;

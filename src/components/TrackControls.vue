@@ -140,39 +140,9 @@
         }
       },
       handleInsertSegment(payload) {
-        if (!payload) return;
-        const tpb = Math.max(1, Number(this.track.seqTicksPerBeat || 4));
-        const lenTicks = Math.max(1, Math.round((payload.lenBeats || 1) * tpb));
-        const endTick = this.track.elements.reduce(
-          (m, el) =>
-            Math.max(m, Number(el.start || 0) + Math.max(1, Math.round((el.lenBeats || 1) * tpb))),
-          0
-        );
-        const start = Math.min(
-          endTick,
-          Math.max(0, this.track.seqBeatsPerBar * this.track.seqBars * tpb - 1)
-        );
-        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        this.track.elements.push({
-          id,
-          start,
-          lenBeats: Math.max(0.0625, Number(payload.lenBeats || 1)),
-          degree: Number.isFinite(payload.degree) ? payload.degree : 0,
-          octave: Number.isFinite(payload.octave) ? payload.octave : this.track.octave || 4,
-          quality: payload.quality || this.track.quality || 'maj',
-          inversion: Number.isFinite(payload.inversion) ? payload.inversion : 0,
-          extensions: Array.isArray(payload.extensions) ? payload.extensions.slice(0, 8) : [],
-          velocity: Math.max(
-            1,
-            Math.min(127, Number(payload.velocity || this.track.velocity || 96))
-          ),
-          arp: !!payload.arp,
-          arpLenBeats: Number.isFinite(payload.arpLenBeats)
-            ? Math.max(0.0625, payload.arpLenBeats)
-            : 0.25,
-          hold: !!payload.hold,
-        });
-        this.track.selectedElementId = id;
+        if (this.$refs.seq && this.$refs.seq.insertSegment) {
+          this.$refs.seq.insertSegment(payload || {});
+        }
       },
       onSelectElement(id) {
         this.track.selectedElementId = id;

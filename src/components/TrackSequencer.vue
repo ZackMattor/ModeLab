@@ -38,7 +38,7 @@
     </div>
 
     <div class="ruler-fixed" ref="ruler" @mousedown.stop="onRulerDown">
-      <svg :width="svgWTotal" height="16">
+      <svg :width="svgWTotal" height="28">
         <g>
           <line
             v-for="t in totalBeats + 1"
@@ -46,7 +46,7 @@
             :x1="gutter + t * ticksPerBeat * pxPerTick"
             y1="0"
             :x2="gutter + t * ticksPerBeat * pxPerTick"
-            y2="16"
+            y2="28"
             class="beat"
           />
           <line
@@ -55,7 +55,7 @@
             :x1="gutter + (b - 1) * track.seqBeatsPerBar * ticksPerBeat * pxPerTick"
             y1="0"
             :x2="gutter + (b - 1) * track.seqBeatsPerBar * ticksPerBeat * pxPerTick"
-            y2="16"
+            y2="28"
             class="barline"
           />
           <text
@@ -69,6 +69,60 @@
           </text>
           <!-- Playhead triangle in fixed ruler -->
           <polygon class="head" :points="`${playX - 5},0 ${playX + 5},0 ${playX},10`" />
+          <!-- Elements lane moved into fixed ruler (sticky) -->
+          <g class="elements">
+            <g v-for="el in track.elements" :key="'elfix' + el.id">
+              <rect
+                :x="gutter + el.start * pxPerTick"
+                :y="14"
+                :width="Math.max(4, elTicks(el) * pxPerTick)"
+                height="12"
+                :class="['segment', track.selectedElementId === el.id ? 'selected' : '']"
+                @mousedown.stop="onElementDown($event, el)"
+              />
+              <!-- Visible grips for element edges -->
+              <rect
+                :x="gutter + el.start * pxPerTick - 1"
+                y="14"
+                width="2"
+                height="12"
+                class="seg-edge seg-edge-start"
+              />
+              <rect
+                :x="gutter + (el.start + elTicks(el)) * pxPerTick - 1"
+                y="14"
+                width="2"
+                height="12"
+                class="seg-edge seg-edge-end"
+              />
+              <rect
+                :x="gutter + el.start * pxPerTick - 5"
+                y="14"
+                width="10"
+                height="12"
+                class="segment-handle"
+                pointer-events="all"
+                @mousedown.stop.prevent="onElementDown($event, el, 'resize-left')"
+              />
+              <rect
+                :x="gutter + (el.start + elTicks(el)) * pxPerTick - 5"
+                y="14"
+                width="10"
+                height="12"
+                class="segment-handle"
+                pointer-events="all"
+                @mousedown.stop.prevent="onElementDown($event, el, 'resize-right')"
+              />
+              <text
+                :x="gutter + el.start * pxPerTick + 4"
+                y="24"
+                class="segment-label"
+                @mousedown.stop="onElementDown($event, el)"
+              >
+                {{ rnForDegree(el.degree || 0, el.quality) }}
+              </text>
+            </g>
+          </g>
         </g>
       </svg>
     </div>
@@ -80,68 +134,14 @@
       @mousemove="onHover"
       @mouseleave="clearHover"
     >
-      <svg :width="svgWTotal" :height="svgH + 16">
-        <!-- Elements lane (top band) -->
-        <g class="elements">
-          <g v-for="el in track.elements" :key="'el' + el.id">
-            <rect
-              :x="gutter + el.start * pxPerTick"
-              :y="2"
-              :width="Math.max(4, elTicks(el) * pxPerTick)"
-              height="12"
-              :class="['segment', track.selectedElementId === el.id ? 'selected' : '']"
-              @mousedown.stop="onElementDown($event, el)"
-            />
-            <!-- Visible grips for element edges -->
-            <rect
-              :x="gutter + el.start * pxPerTick - 1"
-              y="2"
-              width="2"
-              height="12"
-              class="seg-edge seg-edge-start"
-            />
-            <rect
-              :x="gutter + (el.start + elTicks(el)) * pxPerTick - 1"
-              y="2"
-              width="2"
-              height="12"
-              class="seg-edge seg-edge-end"
-            />
-            <rect
-              :x="gutter + el.start * pxPerTick - 5"
-              y="2"
-              width="10"
-              height="12"
-              class="segment-handle"
-              pointer-events="all"
-              @mousedown.stop.prevent="onElementDown($event, el, 'resize-left')"
-            />
-            <rect
-              :x="gutter + (el.start + elTicks(el)) * pxPerTick - 5"
-              y="2"
-              width="10"
-              height="12"
-              class="segment-handle"
-              pointer-events="all"
-              @mousedown.stop.prevent="onElementDown($event, el, 'resize-right')"
-            />
-            <text
-              :x="gutter + el.start * pxPerTick + 4"
-              y="12"
-              class="segment-label"
-              @mousedown.stop="onElementDown($event, el)"
-            >
-              {{ rnForDegree(el.degree || 0, el.quality) }}
-            </text>
-          </g>
-        </g>
+      <svg :width="svgWTotal" :height="svgH">
         <!-- Element ghost notes (read-only) -->
         <g class="ghosts">
           <template v-for="el in track.elements" :key="'g' + el.id">
             <template v-for="r in ghostRectsForElement(el)" :key="'g' + el.id + '-' + r.k">
               <rect
                 :x="gutter + r.start * pxPerTick"
-                :y="yForNote(r.note) + 16 + 2"
+                :y="yForNote(r.note) + 2"
                 :width="Math.max(2, r.ticks * pxPerTick)"
                 :height="rowH - 6"
                 class="ghost-note"
@@ -155,7 +155,7 @@
             v-for="(p, i) in rowPitches"
             :key="'r' + i"
             :x="gutter"
-            :y="i * rowH + 16"
+            :y="i * rowH"
             :width="svgW"
             :height="rowH"
             :class="['row', isBlack(p) ? 'blk' : 'wht']"
@@ -167,9 +167,9 @@
             v-for="t in totalBeats + 1"
             :key="'bl' + t"
             :x1="gutter + t * ticksPerBeat * pxPerTick"
-            y1="16"
+            y1="0"
             :x2="gutter + t * ticksPerBeat * pxPerTick"
-            :y2="svgH + 16"
+            :y2="svgH"
             class="beat"
           />
         </g>
@@ -178,7 +178,7 @@
         <g v-if="hoverTick != null && hoverNote != null">
           <rect
             :x="gutter + hoverTick * pxPerTick"
-            :y="yForNote(hoverNote) + 16"
+            :y="yForNote(hoverNote)"
             :width="pxPerTick"
             :height="rowH"
             class="cell-highlight"
@@ -189,7 +189,7 @@
           <g v-for="ev in track.sequence" :key="ev.id">
             <rect
               :x="gutter + ev.start * pxPerTick"
-              :y="yForNote(ev.note) + 16"
+              :y="yForNote(ev.note)"
               :width="Math.max(4, ev.len * pxPerTick)"
               :height="rowH - 2"
               class="note"
@@ -198,21 +198,21 @@
             <!-- Visual edge markers for clarity -->
             <rect
               :x="gutter + ev.start * pxPerTick"
-              :y="yForNote(ev.note) + 16"
+              :y="yForNote(ev.note)"
               width="1"
               :height="rowH - 2"
               class="edge edge-start"
             />
             <rect
               :x="gutter + (ev.start + ev.len) * pxPerTick - 1"
-              :y="yForNote(ev.note) + 16"
+              :y="yForNote(ev.note)"
               width="1"
               :height="rowH - 2"
               class="edge edge-end"
             />
             <rect
               :x="gutter + ev.start * pxPerTick - 4"
-              :y="yForNote(ev.note) + 16"
+              :y="yForNote(ev.note)"
               width="12"
               :height="rowH - 2"
               class="handle"
@@ -221,7 +221,7 @@
             />
             <rect
               :x="gutter + (ev.start + ev.len) * pxPerTick - 4"
-              :y="yForNote(ev.note) + 16"
+              :y="yForNote(ev.note)"
               width="12"
               :height="rowH - 2"
               class="handle"
@@ -236,7 +236,7 @@
             <text
               v-if="scalePCs.includes(p % 12)"
               :x="gutter - 4"
-              :y="i * rowH + 16 + rowH / 2 + 3"
+              :y="i * rowH + rowH / 2 + 3"
               class="pc-label"
               text-anchor="end"
             >
@@ -247,33 +247,27 @@
         <!-- Middle C marker (on top of notes) -->
         <g>
           <!-- Draw dashed lines at the top and bottom of the C4 row for clarity -->
+          <line :x1="0" :x2="svgWTotal" :y1="yForNote(60)" :y2="yForNote(60)" class="midc-line" />
           <line
             :x1="0"
             :x2="svgWTotal"
-            :y1="yForNote(60) + 16"
-            :y2="yForNote(60) + 16"
-            class="midc-line"
-          />
-          <line
-            :x1="0"
-            :x2="svgWTotal"
-            :y1="yForNote(60) + 16 + rowH"
-            :y2="yForNote(60) + 16 + rowH"
+            :y1="yForNote(60) + rowH"
+            :y2="yForNote(60) + rowH"
             class="midc-line"
           />
           <rect
             :x="2"
-            :y="yForNote(60) + 16 + rowH / 2 - 8"
+            :y="yForNote(60) + rowH / 2 - 8"
             width="24"
             height="16"
             rx="3"
             class="midc-badge"
           />
-          <text :x="14" :y="yForNote(60) + 16 + rowH / 2 + 3" class="midc-label">C4</text>
+          <text :x="14" :y="yForNote(60) + rowH / 2 + 3" class="midc-label">C4</text>
         </g>
         <!-- Playhead -->
         <g>
-          <line :x1="playX" :x2="playX" y1="0" :y2="svgH + 16" class="playhead" />
+          <line :x1="playX" :x2="playX" y1="0" :y2="svgH" class="playhead" />
         </g>
       </svg>
     </div>
@@ -455,9 +449,11 @@
         // select element and prepare drag
         this.$emit('select-element', el.id);
         if (this.track) this.track.selectedElementId = el.id;
-        const rect = this.$refs.roll.getBoundingClientRect();
-        const x = e.clientX - rect.left + this.$refs.roll.scrollLeft;
-        const y = e.clientY - rect.top + this.$refs.roll.scrollTop; // not used
+        const svg = e.currentTarget?.ownerSVGElement;
+        const container = svg?.parentElement || this.$refs.roll;
+        const rect = svg?.getBoundingClientRect() || this.$refs.roll.getBoundingClientRect();
+        const x = e.clientX - rect.left + (container?.scrollLeft || 0);
+        const y = e.clientY - rect.top + (container?.scrollTop || 0); // not used
         this.drag = {
           mode: mode || 'el-move',
           kind: 'element',
@@ -475,7 +471,7 @@
         const rect = this.$refs.roll.getBoundingClientRect();
         const x = e.clientX - rect.left + this.$refs.roll.scrollLeft;
         const yAll = e.clientY - rect.top + this.$refs.roll.scrollTop;
-        const y = yAll - 16; // account for ruler height
+        const y = yAll; // no top band in roll
         this.drag = {
           kind: 'note',
           mode: mode || 'move',
@@ -493,23 +489,7 @@
         const rect = this.$refs.roll.getBoundingClientRect();
         const x = e.clientX - rect.left + this.$refs.roll.scrollLeft;
         const yAll = e.clientY - rect.top + this.$refs.roll.scrollTop;
-        // Elements lane interaction (top 16px)
-        if (yAll < 16) {
-          const el = this.findElementAtX(x);
-          if (el) {
-            const px = x - this.gutter;
-            const leftX = el.start * this.pxPerTick;
-            const rightX = (el.start + this.elTicks(el)) * this.pxPerTick;
-            let mode = 'el-move';
-            if (Math.abs(px - leftX) <= 6) mode = 'resize-left';
-            if (Math.abs(px - rightX) <= 6) mode = 'resize-right';
-            this.onElementDown(e, el, mode);
-            return;
-          }
-          // no element under cursor; ignore (creation via ChordSelector)
-          return;
-        }
-        const y = yAll - 16; // account for ruler
+        const y = yAll;
         let ev = this.findEventAt(x, y);
         if (ev) {
           const px = x - this.gutter;
@@ -789,11 +769,7 @@
         const rect = this.$refs.roll.getBoundingClientRect();
         const x = e.clientX - rect.left + this.$refs.roll.scrollLeft;
         const yAll = e.clientY - rect.top + this.$refs.roll.scrollTop;
-        if (yAll < 16) {
-          this.clearHover();
-          return;
-        }
-        const y = yAll - 16;
+        const y = yAll;
         this.hoverTick = this.tickForX(x);
         this.hoverNote = this.noteForY(y);
       },
@@ -801,32 +777,55 @@
         this.hoverTick = null;
         this.hoverNote = null;
       },
-      addSegmentAtPlayhead() {
+      // Insert a segment at the current playhead, then move playhead to its end
+      insertSegment(payload = {}) {
         const tpb = Math.max(1, Number(this.track.seqTicksPerBeat || 4));
-        // snap to beat
-        const startTick = Math.max(
-          0,
-          Math.min(this.totalTicks - 1, Math.floor(this.playTick / tpb) * tpb)
-        );
+        const startTick = Math.max(0, Math.min(this.totalTicks - 1, Math.round(this.playTick)));
+        const lenBeats = Math.max(0.0625, Number(payload.lenBeats || 1));
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        const lenBeats = 1; // default one beat
+        const degree = Number.isFinite(payload.degree)
+          ? payload.degree
+          : Number.isFinite(this.track.degree)
+            ? this.track.degree
+            : 0;
+        const octave = Number.isFinite(payload.octave) ? payload.octave : this.track.octave || 4;
+        const quality = payload.quality || this.track.quality || 'maj';
+        const inversion = Number.isFinite(payload.inversion) ? payload.inversion : 0;
+        const extensions = Array.isArray(payload.extensions)
+          ? payload.extensions.slice(0, 8)
+          : Array.isArray(this.track.extensions)
+            ? this.track.extensions.slice(0, 8)
+            : [];
+        const velocity = Math.max(
+          1,
+          Math.min(127, Number(payload.velocity || this.track.velocity || 96))
+        );
+        const arp = !!(payload.arp ?? this.track.arp);
+        const arpLenBeats = Number.isFinite(payload.arpLenBeats)
+          ? Math.max(0.0625, payload.arpLenBeats)
+          : Math.max(0.0625, Number(this.track.arpLenBeats || 0.25));
+        const hold = !!(payload.hold ?? this.track.hold);
         this.track.elements.push({
           id,
           start: startTick,
-          lenBeats: Math.max(0.0625, Number(lenBeats)),
-          degree: Number.isFinite(this.track.degree) ? this.track.degree : 0,
-          octave: Number.isFinite(this.track.octave) ? this.track.octave : 4,
-          quality: this.track.quality || 'maj',
-          inversion: Number.isFinite(this.track.inversion) ? this.track.inversion : 0,
-          extensions: Array.isArray(this.track.extensions) ? this.track.extensions.slice(0, 8) : [],
-          velocity: Math.max(1, Math.min(127, Number(this.track.velocity || 96))),
-          arp: !!this.track.arp,
-          arpLenBeats: Number.isFinite(this.track.arpLenBeats)
-            ? Math.max(0.0625, this.track.arpLenBeats)
-            : 0.25,
-          hold: !!this.track.hold,
+          lenBeats,
+          degree,
+          octave,
+          quality,
+          inversion,
+          extensions,
+          velocity,
+          arp,
+          arpLenBeats,
+          hold,
         });
         this.track.selectedElementId = id;
+        // Move playhead to end of new segment
+        const lenTicks = Math.max(1, Math.round(lenBeats * tpb));
+        this.playTick = Math.min(this.totalTicks - 1, startTick + lenTicks);
+      },
+      addSegmentAtPlayhead() {
+        this.insertSegment({ lenBeats: 1 });
       },
     },
     mounted() {
@@ -834,7 +833,7 @@
       this.$nextTick(() => {
         const el = this.$refs.roll;
         if (!el) return;
-        const target = this.yForNote(60) + 16; // account for ruler
+        const target = this.yForNote(60);
         const centerOffset = Math.max(0, target - (el.clientHeight / 2 - this.rowH / 2));
         el.scrollTop = centerOffset;
         // sync initial horizontal scroll
